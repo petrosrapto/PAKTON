@@ -18,9 +18,15 @@ export async function login(input: LoginWithEmailInput) {
 
   if (error) {
     console.error(error);
-    redirect("/auth/login?error=true");
+    // Pass the specific error code to the login page
+    const errorCode = error.message.includes('Invalid login credentials') || 
+                      error.message.includes('invalid_credentials') ||
+                      (error as any).code === 'invalid_credentials'
+      ? 'invalid_credentials' 
+      : 'generic_error';
+    redirect(`/auth/login?error=${errorCode}`);
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  redirect("/?loginSuccess=true");
 }

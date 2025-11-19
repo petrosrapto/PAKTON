@@ -83,14 +83,14 @@ const WhyPakton = () => {
 };
 
 export function Signup() {
-  const [isError, setIsError] = useState(false);
+  const [errorType, setErrorType] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
     const error = searchParams.get("error");
-    if (error === "true") {
-      setIsError(true);
+    if (error) {
+      setErrorType(error);
       // Remove the error parameter from the URL
       const newSearchParams = new URLSearchParams(searchParams);
       newSearchParams.delete("error");
@@ -104,23 +104,34 @@ export function Signup() {
   const onSignupWithEmail = async (
     input: SignupWithEmailInput
   ): Promise<void> => {
-    setIsError(false);
+    setErrorType(null);
     await signup(input, window.location.origin);
   };
 
   const onSignupWithOauth = async (
     provider: "google" | "github"
   ): Promise<void> => {
-    setIsError(false);
-    const client = createSupabaseClient();
-    const currentOrigin =
-      typeof window !== "undefined" ? window.location.origin : "";
-    await client.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${currentOrigin}/auth/callback`,
-      },
-    });
+    try {
+      setErrorType(null);
+      const client = createSupabaseClient();
+      const currentOrigin =
+        typeof window !== "undefined" ? window.location.origin : "";
+      
+      const { error } = await client.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${currentOrigin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        console.error("OAuth Error:", error);
+        setErrorType("oauth_error");
+      }
+    } catch (error) {
+      console.error("OAuth Error:", error);
+      setErrorType("oauth_error");
+    }
   };
 
   return (
@@ -187,9 +198,12 @@ export function Signup() {
                 onSignupWithEmail={onSignupWithEmail}
                 onSignupWithOauth={onSignupWithOauth}
               />
-              {isError && (
+              {errorType && (
                 <p className="text-red-500 text-sm text-center mt-4">
-                  There was an error creating your account. Please try again.
+                  {errorType === 'oauth_error'
+                    ? "There was an error with social login. Please try again or contact support if the problem persists."
+                    : "There was an error creating your account. Please try again."
+                  }
                 </p>
               )}
             </div>

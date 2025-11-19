@@ -156,27 +156,3 @@ Below are some common issues you may run into if running Open Canvas yourself:
 
 - **`Model name is missing in config.` error is being thrown when I make requests:** This error occurs when the `customModelName` is not specified in the config. You can resolve this by setting the `customModelName` field inside `config.configurable` to the name of the model you want to use when invoking the graph. See [this doc](https://langchain-ai.github.io/langgraphjs/how-tos/configuration/) on how to use configurable fields in LangGraph.
 
-## Roadmap
-
-### Features
-
-Below is a list of features we'd like to add to Open Canvas in the near future:
-
-- **Render React in the editor**: Ideally, if you have Open Canvas generate React (or HTML) code, we should be able to render it live in the editor. **Edit**: This is in the planning stage now!
-- **Multiple assistants**: Users should be able to create multiple assistants, each having their own memory store.
-- **Give assistants custom 'tools'**: Once we've implemented `RemoteGraph` in LangGraph.js, users should be able to give assistants access to call their own graphs as tools. This means you could customize your assistant to have access to current events, your own personal knowledge graph, etc.
-
-Do you have a feature request? Please [open an issue](https://github.com/langchain-ai/open-canvas/issues/new)!
-
-### Contributing
-
-We'd like to continue developing and improving Open Canvas, and want your help!
-
-To start, there are a handful of GitHub issues with feature requests outlining improvements and additions to make the app's UX even better.
-There are three main labels:
-
-- `frontend`: This label is added to issues which are UI focused, and do not require much if any work on the agent(s).
-- `ai`: This label is added to issues which are focused on improving the LLM agent(s).
-- `fullstack`: This label is added to issues which require touching both the frontend and agent code.
-
-If you have questions about contributing, please reach out to me via email: `brace(at)langchain(dot)dev`. For general bugs/issues with the code, please [open an issue on GitHub](https://github.com/langchain-ai/open-canvas/issues/new).

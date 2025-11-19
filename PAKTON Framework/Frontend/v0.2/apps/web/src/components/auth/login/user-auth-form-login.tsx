@@ -76,6 +76,7 @@ export function UserAuthForm({
               </Label>
               <PasswordInput
                 id="password"
+                placeholder="Password"
                 autoComplete="new-password"
                 autoCorrect="off"
                 disabled={isLoading}
@@ -103,16 +104,17 @@ export function UserAuthForm({
         </div>
       </div>
       <Button
-        onClick={async () => {
+        onClick={() => {
           setGoogleIsLoading(true);
-          await onLoginWithOauth("google");
-          setGoogleIsLoading(false);
+          onLoginWithOauth("google").catch(() => {
+            setGoogleIsLoading(false);
+          });
         }}
         variant="outline"
         type="button"
         disabled={isLoading}
       >
-        {isLoading ? (
+        {isGoogleLoading ? (
           <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
         ) : (
           <Icons.google className="mr-2 h-4 w-4" />

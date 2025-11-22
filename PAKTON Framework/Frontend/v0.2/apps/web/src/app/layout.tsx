@@ -10,7 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "PAKTON",
-  description: "A Multi-Agent Framework for Contract Document Analysis",
+  description: "A Multi-Agent Framework for Question Answering in Long Legal Agreements",
 };
 
 export default function RootLayout({

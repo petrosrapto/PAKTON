@@ -99,7 +99,7 @@ export function UserAuthForm({
         </div>
         <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-background px-2 text-muted-foreground">
-            Or continue with
+            Or
           </span>
         </div>
       </div>
@@ -113,13 +113,14 @@ export function UserAuthForm({
         variant="outline"
         type="button"
         disabled={isLoading}
+        className="w-full flex items-center justify-center gap-2 hover:bg-gray-50"
       >
         {isGoogleLoading ? (
-          <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
+          <Icons.spinner className="h-5 w-5 animate-spin" />
         ) : (
-          <Icons.google className="mr-2 h-4 w-4" />
-        )}{" "}
-        Google
+          <img src="/google_logo.png" alt="Google" className="h-5 w-5" />
+        )}
+        <span>Continue with Google</span>
       </Button>
     </div>
   );

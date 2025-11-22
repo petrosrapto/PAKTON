@@ -13,14 +13,11 @@ COPY . .
 # Install dependencies
 RUN yarn install --frozen-lockfile
 
-# Build the web app with the --no-lint flag to skip linting (we're in development mode)
-RUN yarn workspace @opencanvas/web build --no-lint
-
 # Set working directory to web app
 WORKDIR /app/apps/web
 
 # Expose the web app port
 EXPOSE 3000
 
-# Start the web app
-CMD ["yarn", "start"]
+# Start the web app in development mode (since we have volume mounts)
+CMD ["yarn", "dev"]

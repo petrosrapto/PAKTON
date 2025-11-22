@@ -291,7 +291,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         © 2025 PAKTON | Powered by Raptopoulos Petros | petrosrapto@gmail.com
       </div> */}
       <div className="fixed bottom-0 left-0 right-0 text-center text-xs text-gray-500 py-2 border-t border-gray-200 bg-white z-10">
-        © 2025 PAKTON 
+        © 2025 PAKTON - Made by <a href="https://petrosraptopoulos.com/" target="_blank" rel="noopener noreferrer" className="hover:text-gray-700 underline">Petros Raptopoulos</a>
       </div>
     </ThreadPrimitive.Root>
   );

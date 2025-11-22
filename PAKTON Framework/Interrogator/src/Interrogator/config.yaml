@@ -1,0 +1,87 @@
+# Description:
+# Configuration file for the Interrogator agent. This is the central place where all
+# different configurations and settings for the Interrogator happen. It is important
+# to properly configure this file as it controls indexing backends, parsing strategies,
+# model selection, logging levels, and other critical system behaviors.
+#
+# Author: Raptopoulos Petros [petrosrapto@gmail.com]
+# Date : 2025/03/10
+
+interrogation:
+  max_num_turns: 1
+
+# for local deployment using vLLM just pick OPENAI at
+# the API and choose the right model_id
+# you must complete the endpoint_url with the right IP
+# for the vLLM server
+
+models:
+  # Default model configuration (used as fallback)
+  default:
+    API: "GOOGLE" # OPENAI or BEDROCK or LOCAL or GOOGLE
+    model_id: "gemma-3-27b-it"
+    # "gemini-2.0-flash"
+    # "meta-llama/Llama-3.3-70B-Instruct"
+    # "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    # "meta-llama/Meta-Llama-3-8B-Instruct"
+    # "meta.llama3-1-8b-instruct-v1:0"
+    # "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # "anthropic.claude-3-opus-20240229-v1:0"
+    # "mistral.mistral-7b-instruct-v0:2"
+    # "meta.llama3-1-70b-instruct-v1:0"
+    # "anthropic.claude-3-5-sonnet-20241022-v2:0" # Model ID from OPENAI or BEDROCK "gpt-4o" for example
+    # "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    # "qwen2.5-72b-instruct"
+    # "deepseek-chat"
+    # gemma-3-27b-it
+    args:
+      temperature: 0.2
+      # max_tokens: 8192 
+      # top_p: 1.0
+    # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+
+
+  # Question Generator can use a specialized model
+  question_generator:
+    API: "GOOGLE"
+    model_id: "gemma-3-27b-it"
+    args:
+      temperature: 0.5
+      # max_tokens: 8192 # LLAMA 70 B REQUIRES 8192
+    # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+      
+  # Report Generator can use a different model
+  report_generator:
+    API: "GOOGLE"
+    model_id: "gemma-3-27b-it"
+    args:
+      temperature: 0.5
+      # max_tokens: 8192
+    # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+
+  write_conclusion:
+    API: "GOOGLE"
+    model_id: "gemma-3-27b-it"
+    args:
+      temperature: 0.5
+      # max_tokens: 8192
+    
+    # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+
+logging:
+  level: "DEBUG"  
+  file: "interrogator.log"  
+  format: "[%(asctime)s]  [%(name)s] [%(levelname)s] [%(message)s]"
+  rotation: "10MB"  # Maximum size before rotating logs
+  retention: "10 days"  # Keep logs for this duration
+  console_output: true # print the loggings into the stdout as well
+
+visualization: False # Enable/Disable graph visualization

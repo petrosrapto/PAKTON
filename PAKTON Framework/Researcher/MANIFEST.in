@@ -1,0 +1,3 @@
+include src/Researcher/.env
+include src/Researcher/config.yaml
+recursive-include src/Researcher *.yaml *.env .env

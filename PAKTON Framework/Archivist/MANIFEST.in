@@ -1,0 +1,3 @@
+include src/Archivist/.env
+include src/Archivist/config.yaml
+recursive-include src/Archivist *.yaml *.env .env

@@ -1,0 +1,3 @@
+include src/Interrogator/.env
+include src/Interrogator/config.yaml
+recursive-include src/Interrogator *.yaml *.env .env

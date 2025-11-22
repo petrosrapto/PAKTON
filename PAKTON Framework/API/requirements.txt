@@ -1,0 +1,8 @@
+amqp==5.3.1
+celery==5.5.3
+fastapi==0.121.3
+gunicorn==23.0.0
+python-dotenv==1.2.1
+python-multipart==0.0.20
+redis==7.1.0
+uvicorn==0.38.0

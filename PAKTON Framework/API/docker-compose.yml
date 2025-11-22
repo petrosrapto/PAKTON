@@ -1,0 +1,87 @@
+# Description: 
+#     Docker Compose configuration for the PAKTON API service stack.
+#     Orchestrates RabbitMQ message broker, Redis result backend, FastAPI service,
+#     and Celery worker for distributed task processing.
+#     
+# Author: Raptopoulos Petros [petrosrapto@gmail.com]
+# Date  : 2025/03/10
+
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  multiagentframework_service:
+    container_name: multiagentframework_service
+    build:
+      context: ..
+      dockerfile: API/Dockerfile
+    depends_on:
+      - rabbitmq
+      - redis
+    environment:
+      CELERY_BROKER_URL: "amqp://rabbitmq:5672"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      SERVICE_NAME: "multiagentframework_service"
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "5001:5001"
+    restart: always
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+
+  multiagentframework_worker:
+    container_name: multiagentframework_worker
+    build:
+      context: ..
+      dockerfile: API/Dockerfile
+    depends_on:
+      - multiagentframework_service
+      - rabbitmq
+      - redis
+    command: [
+      "celery",
+      "-A", "API.tasks.celery_app",
+      "worker",
+      "-Q", "multiagentframework_service_queue",
+      "--concurrency=4",
+      "--loglevel=debug"
+    ]
+    environment:
+      CELERY_BROKER_URL: "amqp://rabbitmq:5672"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      SERVICE_NAME: "multiagentframework_service"
+      PYTHONUNBUFFERED: "1"
+    restart: always
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+
+  # PostgreSQL service for persistence of the conversations of the Archivist
+  postgres:
+    image: postgres:15-alpine
+    container_name: archivist_postgres
+    environment:
+      POSTGRES_DB: archivist_db
+      POSTGRES_USER: archivist_user
+      POSTGRES_PASSWORD: archivist_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres_data:

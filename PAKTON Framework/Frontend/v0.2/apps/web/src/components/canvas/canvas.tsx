@@ -113,8 +113,11 @@ export function CanvasComponent() {
                 router.replace(`?${queryParams.toString()}`, { scroll: false });
               }}
               switchSelectedThreadCallback={(thread) => {
-                // Chat should only be "started" if there are messages present
-                if ((thread.values as Record<string, any>)?.messages?.length) {
+                // Chat should be "started" if there's a valid thread_id (conversation or legacy thread with messages)
+                const hasMessages = (thread.values as Record<string, any>)?.messages?.length;
+                const isValidThread = thread.thread_id && (hasMessages || !thread.values || Object.keys(thread.values).length === 0);
+                
+                if (isValidThread) {
                   setChatStarted(true);
                   if (thread?.metadata?.customModelName) {
                     setModelName(
@@ -146,9 +149,9 @@ export function CanvasComponent() {
         )}
         {!chatCollapsed && chatStarted && (
           <ResizablePanel
-            defaultSize={25}
-            minSize={15}
-            maxSize={50}
+            defaultSize={67}
+            minSize={50}
+            maxSize={85}
             className="transition-all duration-700 h-screen mr-auto bg-gray-50/70 shadow-inner-right"
             id="chat-panel-main"
             order={1}
@@ -167,8 +170,11 @@ export function CanvasComponent() {
                   });
                 }}
                 switchSelectedThreadCallback={(thread) => {
-                  // Chat should only be "started" if there are messages present
-                  if ((thread.values as Record<string, any>)?.messages?.length) {
+                  // Chat should be "started" if there's a valid thread_id (conversation or legacy thread with messages)
+                  const hasMessages = (thread.values as Record<string, any>)?.messages?.length;
+                  const isValidThread = thread.thread_id && (hasMessages || !thread.values || Object.keys(thread.values).length === 0);
+                  
+                  if (isValidThread) {
                     setChatStarted(true);
                     if (thread?.metadata?.customModelName) {
                       setModelName(
@@ -204,9 +210,9 @@ export function CanvasComponent() {
           <>
             <ResizableHandle />
             <ResizablePanel
-              defaultSize={chatCollapsed ? 100 : 75}
-              maxSize={85}
-              minSize={50}
+              defaultSize={chatCollapsed ? 100 : 33}
+              maxSize={50}
+              minSize={15}
               id="canvas-panel"
               order={2}
               className="flex flex-row w-full"

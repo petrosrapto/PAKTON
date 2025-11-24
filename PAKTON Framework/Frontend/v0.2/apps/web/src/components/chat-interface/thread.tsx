@@ -3,12 +3,12 @@ import { useToast } from "@/hooks/use-toast";
 import { ProgrammingLanguageOptions } from "@opencanvas/shared/types";
 import { ThreadPrimitive, useComposerRuntime } from "@assistant-ui/react";
 import { Thread as ThreadType } from "@langchain/langgraph-sdk";
-import { ArrowDownIcon, FileUp, PanelRightOpen, SquarePen } from "lucide-react";
-import { Dispatch, FC, SetStateAction, useState, useEffect, useRef } from "react";
+import { ArrowDownIcon, FileText, PanelRightOpen, SquarePen } from "lucide-react";
+import { Dispatch, FC, SetStateAction, useEffect, useRef } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 // ReflectionsDialog import removed
 import { useLangSmithLinkToolUI } from "../tool-hooks/LangSmithLinkToolUI";
 import { TooltipIconButton } from "../ui/assistant-ui/tooltip-icon-button";
-import { TighterText } from "../ui/header";
 import { Composer } from "./composer";
 import { AssistantMessage, UserMessage } from "./messages";
 import ModelSelector from "./model-selector";
@@ -16,8 +16,9 @@ import { ThreadHistory } from "./thread-history";
 import { ThreadWelcome } from "./welcome";
 import { useUserContext } from "@/contexts/UserContext";
 import { useThreadContext } from "@/contexts/ThreadProvider";
-import { useAssistantContext } from "@/contexts/AssistantContext";
-import { Button } from "../ui/button";
+import { useDocumentContext } from "@/contexts/DocumentContext";
+import { DocumentPreviewDialog } from "./document-preview-dialog";
+import { createSupabaseClient } from "@/lib/supabase/client";
 
 const ThreadScrollToBottom: FC = () => {
   return (
@@ -57,7 +58,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   const {
     graphData: { clearState, runId, feedbackSubmitted, setFeedbackSubmitted, isStreaming },
   } = useGraphContext();
-  const { selectedAssistant } = useAssistantContext();
   const {
     modelName,
     setModelName,
@@ -67,7 +67,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     setThreadId,
   } = useThreadContext();
   const { user } = useUserContext();
-  const [isDocumentUploaded, setIsDocumentUploaded] = useState(false);
+  const { isDocumentUploaded, setIsDocumentUploaded, uploadedFileName, setUploadedFileName, uploadedFile, setUploadedFile } = useDocumentContext();
   const composerRuntime = useComposerRuntime();
   const uploadedFileRef = useRef<File | null>(null);
 
@@ -108,6 +108,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     clearState();
     setChatStarted(false);
     setIsDocumentUploaded(false);
+    setUploadedFile(null);
     uploadedFileRef.current = null;
   };
 
@@ -131,8 +132,58 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     }
   };
 
-  const processUploadedFile = (file: File) => {
-    // Store the file for later reattachment
+  const pollTaskStatus = async (taskId: string, maxRetries = 30, initialInterval = 2000, backoffFactor = 1.2) => {
+    const ARCHIVIST_API_URL = "http://localhost:5001";
+    const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILURE', 'REVOKED', 'IGNORED']);
+    let currentInterval = initialInterval;
+    
+    // Get authentication token
+    const supabase = createSupabaseClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session?.access_token) {
+      throw new Error('Authentication required to check task status');
+    }
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const response = await fetch(`${ARCHIVIST_API_URL}/task_status/${taskId}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Status check failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const status = data.data?.task_status;
+
+        if (TERMINAL_STATUSES.has(status)) {
+          return data;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, currentInterval));
+        currentInterval *= backoffFactor;
+      } catch (error) {
+        console.error('Error polling task status:', error);
+        throw error;
+      }
+    }
+
+    throw new Error('Task polling timed out');
+  };
+
+  const processUploadedFile = async (file: File) => {
+    const ARCHIVIST_API_URL = "http://localhost:5001";
+    const MIME_TYPES: Record<string, string> = {
+      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      '.pdf': 'application/pdf',
+      '.txt': 'text/plain'
+    };
+    
+    // Store the file for later reference
     uploadedFileRef.current = file;
     
     toast({
@@ -141,51 +192,89 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
       duration: 2000,
     });
     
-    // Here you would connect to your backend API
-    // This is a placeholder that simulates successful upload
-    setTimeout(() => {
-      setIsDocumentUploaded(true);
-      // Ensure the file is attached to the composer
-      if (composerRuntime) {
-        composerRuntime.addAttachment(file);
-      }
-      
-      toast({
-        title: "Document Indexed",
-        description: "Document successfully indexed. You can now ask questions.",
-        duration: 3000,
-      });
-    }, 2000);
-    
-    // For actual implementation, you'd use fetch or axios:
-    /*
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('metadata', JSON.stringify({
-      title: file.name,
-      author: "User"
-    }));
-    
     try {
-      const response = await fetch('http://localhost:5001/index/document/', {
+      // Get file extension
+      const fileName = file.name;
+      const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase();
+      
+      // Check if file type is supported
+      if (!MIME_TYPES[fileExtension]) {
+        throw new Error(`Unsupported file type: ${fileExtension}. Please upload .docx, .pdf, or .txt files.`);
+      }
+
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('file', file, fileName);
+      
+      const metadata = {
+        title: fileName,
+        author: "User"
+      };
+      formData.append('metadata', JSON.stringify(metadata));
+
+      // Get authentication token
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error('No active session. Please log in again.');
+      }
+
+      // Call index endpoint
+      const response = await fetch(`${ARCHIVIST_API_URL}/index/document/`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: formData
       });
-      
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
       const result = await response.json();
-      // Handle task_id and polling here
+      const taskId = result.data?.task_id;
+
+      if (!taskId) {
+        throw new Error('No task ID returned from server');
+      }
+
+      toast({
+        title: "Document Uploaded",
+        description: "Processing document...",
+        duration: 2000,
+      });
+
+      // Poll for task completion
+      const taskResult = await pollTaskStatus(taskId);
       
-      setIsDocumentUploaded(true);
-    } catch (error) {
+      if (taskResult.data?.task_status === 'SUCCESS') {
+        setIsDocumentUploaded(true);
+        setUploadedFileName(file.name);
+        setUploadedFile(file);
+        
+        toast({
+          title: "✅ Document Indexed",
+          description: "Document successfully indexed. You can now ask questions.",
+          duration: 3000,
+        });
+      } else {
+        throw new Error('Document indexing failed');
+      }
+      
+    } catch (error: any) {
       console.error('Error uploading document:', error);
       toast({
         title: "Upload Failed",
-        description: "Failed to upload document. Please try again.",
+        description: error.message || "Failed to upload document. Please try again.",
         duration: 5000,
         variant: "destructive",
       });
+      
+      // Clear the stored file on error
+      uploadedFileRef.current = null;
     }
-    */
   };
 
   return (
@@ -208,15 +297,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         {hasChatStarted ? (
           <div className="flex flex-row flex-1 gap-2 items-center justify-end">
             <TooltipIconButton
-              tooltip="Collapse Chat"
-              variant="ghost"
-              className="w-8 h-8"
-              delayDuration={400}
-              onClick={() => props.setChatCollapsed(true)}
-            >
-              <PanelRightOpen className="text-gray-600" />
-            </TooltipIconButton>
-            <TooltipIconButton
               tooltip="New chat"
               variant="ghost"
               className="w-8 h-8"
@@ -233,39 +313,74 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         )}
       </div>
       <ThreadPrimitive.Viewport className="flex-1 overflow-y-auto scroll-smooth bg-inherit px-4 pt-8">
-        {!hasChatStarted && (
-          <ThreadWelcome
-            handleQuickStart={handleQuickStart}
-            composer={
-              <Composer
-                chatStarted={false}
-                userId={props.userId}
+        <AnimatePresence mode="wait">
+          {!hasChatStarted ? (
+            <motion.div
+              key="welcome"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="h-full"
+            >
+              <ThreadWelcome
+                handleQuickStart={handleQuickStart}
+                composer={
+                  <Composer
+                    chatStarted={false}
+                    userId={props.userId}
+                    searchEnabled={props.searchEnabled}
+                    isDocumentUploaded={isDocumentUploaded}
+                    uploadedFileName={uploadedFileName}
+                    uploadedFile={uploadedFile}
+                  />
+                }
                 searchEnabled={props.searchEnabled}
+                handleDocumentUpload={handleDocumentUpload}
                 isDocumentUploaded={isDocumentUploaded}
               />
-            }
-            searchEnabled={props.searchEnabled}
-            handleDocumentUpload={handleDocumentUpload}
-            isDocumentUploaded={isDocumentUploaded}
-          />
-        )}
-        <ThreadPrimitive.Messages
-          components={{
-            UserMessage: UserMessage,
-            AssistantMessage: (prop) => (
-              <AssistantMessage
-                {...prop}
-                feedbackSubmitted={feedbackSubmitted}
-                setFeedbackSubmitted={setFeedbackSubmitted}
-                runId={runId}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="messages"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              {isDocumentUploaded && uploadedFileName && (
+                <div className="flex justify-center mb-4">
+                  <DocumentPreviewDialog 
+                    file={uploadedFile || null} 
+                    fileName={uploadedFileName}
+                  >
+                    <button className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer">
+                      <FileText className="h-4 w-4" />
+                      <span className="font-medium">{uploadedFileName}</span>
+                    </button>
+                  </DocumentPreviewDialog>
+                </div>
+              )}
+              <ThreadPrimitive.Messages
+                components={{
+                  UserMessage: UserMessage,
+                  AssistantMessage: (prop) => (
+                    <AssistantMessage
+                      {...prop}
+                      feedbackSubmitted={feedbackSubmitted}
+                      setFeedbackSubmitted={setFeedbackSubmitted}
+                      runId={runId}
+                    />
+                  ),
+                }}
               />
-            ),
-          }}
-        />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </ThreadPrimitive.Viewport>
       <div className="mt-4 flex w-full flex-col items-center justify-end rounded-t-lg bg-inherit pb-4 px-4">
         <ThreadScrollToBottom />
-        <div className="w-full max-w-2xl">
+        <div className="w-[65%]">
           {hasChatStarted && (
             <div className="flex flex-col space-y-2">
               {false && (
@@ -282,6 +397,8 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
                 userId={props.userId}
                 searchEnabled={props.searchEnabled}
                 isDocumentUploaded={isDocumentUploaded}
+                uploadedFileName={uploadedFileName}
+                uploadedFile={uploadedFile}
               />
             </div>
           )}

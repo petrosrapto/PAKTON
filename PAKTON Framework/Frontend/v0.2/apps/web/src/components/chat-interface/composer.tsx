@@ -4,10 +4,11 @@ import { ComposerPrimitive, ThreadPrimitive } from "@assistant-ui/react";
 import { type FC, useState, useEffect, useRef } from "react";
 
 import { TooltipIconButton } from "@/components/ui/assistant-ui/tooltip-icon-button";
-import { SendHorizontalIcon } from "lucide-react";
+import { SendHorizontalIcon, FileText, X } from "lucide-react";
 import { DragAndDropWrapper } from "./drag-drop-wrapper";
 import { ComposerAttachments } from "../assistant-ui/attachment";
 import { ComposerActionsPopOut } from "./composer-actions-popout";
+import { DocumentPreviewDialog } from "./document-preview-dialog";
 
 const PAKTON_PLACEHOLDERS = [
   "What terms are covered in this contract?",
@@ -47,6 +48,8 @@ interface ComposerProps {
   userId: string | undefined;
   searchEnabled: boolean;
   isDocumentUploaded?: boolean;
+  uploadedFileName?: string | null;
+  uploadedFile?: File | null;
 }
 
 export const Composer: FC<ComposerProps> = (props: ComposerProps) => {
@@ -109,9 +112,20 @@ export const Composer: FC<ComposerProps> = (props: ComposerProps) => {
   return (
     <DragAndDropWrapper>
       <ComposerPrimitive.Root className="focus-within:border-aui-ring/20 flex flex-col w-full min-h-[64px] flex-wrap items-center justify-center border px-2.5 shadow-sm transition-colors ease-in bg-white rounded-2xl">
-        <div className="flex flex-wrap gap-2 items-start mr-auto w-full" style={{ display: props.isDocumentUploaded ? 'flex' : 'none' }}>
-          <ComposerAttachments />
-        </div>
+        {/* Document indicator badge */}
+        {props.isDocumentUploaded && props.uploadedFileName && !props.chatStarted && (
+          <div className="flex flex-wrap gap-2 items-start mr-auto w-full pt-2">
+            <DocumentPreviewDialog 
+              file={props.uploadedFile || null} 
+              fileName={props.uploadedFileName}
+            >
+              <button className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-sm border border-blue-200 hover:bg-blue-100 transition-colors cursor-pointer">
+                <FileText className="h-4 w-4" />
+                <span className="font-medium">{props.uploadedFileName}</span>
+              </button>
+            </DocumentPreviewDialog>
+          </div>
+        )}
 
         <div className="flex flex-row w-full items-center justify-start my-auto">
           <div style={{ display: 'none' }}>

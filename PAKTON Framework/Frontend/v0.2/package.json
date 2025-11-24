@@ -28,6 +28,7 @@
     "prettier": "^3.3.3"
   },
   "resolutions": {
-    "@langchain/core": "^0.3.38"
+    "@langchain/core": "^0.3.38",
+    "prosemirror-view": "1.32.7"
   }
 }

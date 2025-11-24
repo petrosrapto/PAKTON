@@ -1,86 +1,55 @@
-# Multi-stage build for Open Canvas
-FROM node:20-slim AS builder
+# Production Dockerfile for Open Canvas Frontend
+# Multi-stage build optimized for Next.js standalone output
 
-# Install required dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:20-slim AS base
 
-# Set working directory
+# Install dependencies only when needed
+FROM base AS deps
 WORKDIR /app
 
-# Copy package files
+# Copy package files for dependency installation
 COPY package.json yarn.lock ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/web/package.json ./apps/web/
-COPY apps/agents/package.json ./apps/agents/
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY apps/web/package.json ./apps/web/package.json
 
 # Install dependencies
 RUN yarn install --frozen-lockfile
 
-# Copy the rest of the application
+# Build the application
+FROM base AS builder
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+
+# Copy all source files
 COPY . .
 
-# Build the shared package and all applications
+# Build shared package and web app
 RUN yarn build
 
-# Production stage for Next.js frontend
-FROM node:20-slim AS frontend
-
+# Production image
+FROM base AS runner
 WORKDIR /app
 
-# Copy only the necessary files from the builder stage
-COPY --from=builder /app/package.json /app/yarn.lock ./
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/apps/web/package.json ./apps/web/
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/public ./apps/web/public
-COPY --from=builder /app/apps/web/next.config.js ./apps/web/
+ENV NODE_ENV=production
+ENV PORT=3000
 
-# Install production dependencies only
-RUN yarn install --frozen-lockfile --production
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Set working directory to web app for running the server
-WORKDIR /app/apps/web
+# Copy only the necessary files for production
+# Next.js standalone output
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 
-# Expose port
+USER nextjs
+
 EXPOSE 3000
 
-# Command to run Next.js in production
-CMD ["yarn", "start"]
-
-# Production stage for LangGraph agents
-FROM node:20-slim AS agents
-
-# Install Python dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Copy only the necessary files from the builder stage
-COPY --from=builder /app/package.json /app/yarn.lock ./
-COPY --from=builder /app/packages/shared/package.json ./packages/shared/
-COPY --from=builder /app/apps/agents/package.json ./apps/agents/
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/apps/agents/dist ./apps/agents/dist
-COPY --from=builder /app/apps/agents/src ./apps/agents/src
-
-# Install LangGraph CLI
-RUN pip3 install langchain-cli langchain-langgraph
-
-# Install production dependencies only
-RUN yarn install --frozen-lockfile --production
-
-# Set working directory to agents app
-WORKDIR /app/apps/agents
-
-# Expose port for LangGraph server
-EXPOSE 54367
-
-# Command to run LangGraph server in production
-CMD ["npx", "@langchain/langgraph-cli", "serve", "--port", "54367"]
+# Start the Next.js app
+CMD ["node", "apps/web/server.js"]

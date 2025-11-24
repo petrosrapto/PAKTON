@@ -83,6 +83,72 @@ The service implements a modern, scalable microservices architecture:
    open http://localhost:5001/docs
    ```
 
+## Authentication
+
+The API supports **optional authentication** using Supabase JWT tokens. Authentication can be toggled via environment variable to facilitate development.
+
+### Configuration
+
+Set the `ENABLE_AUTHENTICATION` environment variable in your `.env` file:
+
+```bash
+# Production mode - Authentication REQUIRED
+ENABLE_AUTHENTICATION=true
+
+# Development mode - Authentication DISABLED
+ENABLE_AUTHENTICATION=false
+```
+
+**Default**: `true` (authentication enabled)
+
+### When Authentication is Enabled (`true`)
+
+All API endpoints require a valid Supabase JWT token:
+
+```bash
+curl -X POST http://localhost:5001/query/sse \
+  -H "Authorization: Bearer YOUR_SUPABASE_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Hello, world!"}'
+```
+
+**Protected Endpoints:**
+- `POST /query/celery`
+- `POST /query/sse`
+- `POST /query/stream_steps/sse`
+- `POST /index/document/`
+- `POST /research/`
+- `POST /interrogation/`
+- `GET /task_status/{task_id}`
+
+**Public Endpoints** (always accessible):
+- `GET /` - Root/welcome
+- `GET /health` - Health check
+
+### When Authentication is Disabled (`false`)
+
+No authentication required - useful for local development and testing:
+
+```bash
+curl -X POST http://localhost:5001/query/sse \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Hello, world!"}'
+```
+
+**Note**: When disabled, all requests are logged as `"anonymous (auth disabled)"`.
+
+### Supabase Setup (Required if Authentication Enabled)
+
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Get your project URL from Settings → API
+3. Add to `.env`:
+   ```bash
+   SUPABASE_URL=https://your-project-id.supabase.co
+   ENABLE_AUTHENTICATION=true
+   ```
+
+For detailed authentication setup, see the [Authentication Documentation](#authentication-details).
+
 ## API Endpoints
 
 ### 🔍 Inference Operations

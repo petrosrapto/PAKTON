@@ -1,0 +1,8 @@
+# Ignore all environment files
+*.env
+
+# But keep this .gitignore file
+!.gitignore
+
+# Template/example files are OK
+!*.env.example

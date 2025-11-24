@@ -3,6 +3,11 @@ celery==5.5.3
 fastapi==0.121.3
 gunicorn==23.0.0
 python-dotenv==1.2.1
+python-jose[cryptography]==3.3.0
 python-multipart==0.0.20
 redis==7.1.0
 uvicorn==0.38.0
+# Database dependencies
+sqlalchemy==2.0.23
+alembic==1.13.1
+psycopg2-binary==2.9.9

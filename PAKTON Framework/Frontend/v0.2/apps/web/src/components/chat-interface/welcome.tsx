@@ -228,13 +228,13 @@ export const ThreadWelcome: FC<ThreadWelcomeProps> = (
   const composerRuntime = useComposerRuntime();
   
   const handleUpload = (files: FileList, file: File) => {
-    // Store the uploaded file for displaying in the chat input
+    // Store the uploaded file for reference
     setUploadedContractFile(file);
     
-    // Add the file as an attachment to the composer if available
-    if (composerRuntime && file) {
-      composerRuntime.addAttachment(file);
-    }
+    // Don't add to composer - we upload directly to Archivist API
+    // if (composerRuntime && file) {
+    //   composerRuntime.addAttachment(file);
+    // }
     
     if (props.handleDocumentUpload) {
       // Create a mock event with the files to pass to the original handler

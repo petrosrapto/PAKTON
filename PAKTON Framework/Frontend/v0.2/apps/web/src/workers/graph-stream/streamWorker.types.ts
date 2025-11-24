@@ -13,4 +13,5 @@ export interface StreamConfig {
   input: GraphInput;
   modelName: ALL_MODEL_NAMES;
   modelConfigs: Record<string, CustomModelConfig>;
+  accessToken?: string;
 }

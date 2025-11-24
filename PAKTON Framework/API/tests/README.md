@@ -2,6 +2,8 @@
 
 This directory contains test scripts for validating the API endpoints of the PAKTON Framework.
 
+> **⚠️ Important**: These tests assume **authentication is DISABLED**. Set `ENABLE_AUTHENTICATION=false` in your API's `.env` file before running tests.
+
 ## Overview
 
 The test suite includes:
@@ -14,6 +16,17 @@ The test suite includes:
 ### 1. Running API Service
 
 Ensure the API service is running before executing any test scripts. The default base URL is `http://localhost:5001`.
+
+**Configure Authentication** (Required for Tests):
+
+These tests are designed to run **without authentication**. Before running tests, ensure authentication is disabled:
+
+```bash
+# In your API's .env file:
+ENABLE_AUTHENTICATION=false
+```
+
+If authentication is enabled, all test requests will fail with 401 Unauthorized errors.
 
 To start the API service:
 ```bash

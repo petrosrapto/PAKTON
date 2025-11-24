@@ -13,14 +13,15 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       const forwardedHost = request.headers.get("x-forwarded-host"); // original origin before load balancer
-      const isLocalEnv = process.env.NODE_ENV === "development";
+      const isLocalEnv = process.env.NODE_ENV === "development" || process.env.LOCAL_DEVELOPMENT === "true";
       
       // Add loginSuccess parameter to the redirect URL
       const successUrl = next === "/" ? "/?loginSuccess=true" : `${next}${next.includes('?') ? '&' : '?'}loginSuccess=true`;
       
       if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${successUrl}`);
+        // For local development (including Docker), always use localhost
+        const localOrigin = origin.includes('localhost') ? origin : 'http://localhost:3000';
+        return NextResponse.redirect(`${localOrigin}${successUrl}`);
       } else if (forwardedHost) {
         return NextResponse.redirect(`https://${forwardedHost}${successUrl}`);
       } else {

@@ -2,7 +2,7 @@
 
 import { useUserContext } from "@/contexts/UserContext";
 import { createSupabaseClient } from "@/lib/supabase/client";
-import { Loader2, LogOut, User } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -28,18 +28,22 @@ export function UserAvatarMenu() {
       const supabase = createSupabaseClient();
       await supabase.auth.signOut();
       toast({
-        title: "Logged out successfully",
+        title: "✅ Logged out successfully",
         description: "You have been logged out of your account",
+        duration: 2000,
       });
-      router.push("/auth/login");
+      // Delay navigation to allow toast to be visible
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 1500);
     } catch (error) {
       toast({
         title: "Error logging out",
         description: "An error occurred while logging out",
         variant: "destructive",
+        duration: 3000,
       });
       console.error("Error logging out:", error);
-    } finally {
       setIsLoggingOut(false);
     }
   };

@@ -15,6 +15,7 @@ import os
 import tempfile
 import traceback
 from .response_template import create_task_response
+from .database import get_db_session, ConversationRepository
 
 from .logger import logger
 logger.info("Celery Worker initialized.")
@@ -74,7 +75,7 @@ def async_interrogation(self, userQuery: str, userContext: str = "", userInstruc
         )
 
 @celery_app.task(name=f'{Config.SERVICE_NAME}.tasks.process_query', bind=True, default_retry_delay=5, max_retries=3)
-def async_process_query(self, query: str, thread_id: str = None, config: dict = None):
+def async_process_query(self, query: str, thread_id: str = None, config: dict = None, user_email: str = None):
     """
     Asynchronous query processing using Archivist.
 
@@ -82,6 +83,7 @@ def async_process_query(self, query: str, thread_id: str = None, config: dict = 
         query (str): The user query to process.
         thread_id (str, optional): Thread ID for conversation continuity.
         config (dict, optional): Configuration dictionary containing model/agent settings.
+        user_email (str, optional): User's email for conversation tracking.
 
     Returns:
         dict: JSON response with query result.
@@ -109,7 +111,7 @@ def async_process_query(self, query: str, thread_id: str = None, config: dict = 
         }
         ```
     """
-    logger.debug(f"Task started: async_process_query - query: {query}, thread_id: {thread_id}")
+    logger.debug(f"Task started: async_process_query - query: {query}, thread_id: {thread_id}, user_email: {user_email}")
     
     try:
         archivist = get_archivist()
@@ -124,6 +126,38 @@ def async_process_query(self, query: str, thread_id: str = None, config: dict = 
         result = asyncio.run(process_query_async())
 
         logger.debug(f"Task completed: async_process_query run - result: {result}")
+        
+        # Track conversation in database if user is authenticated
+        if user_email and result.get('thread_id'):
+            try:
+                with get_db_session() as db:
+                    thread_id = result['thread_id']
+                    
+                    # Get or create conversation
+                    conversation = ConversationRepository.get_by_thread_id(db, thread_id)
+                    if not conversation:
+                        # Use the first 500 characters of the query as the title
+                        title = query[:500] if len(query) <= 500 else query[:497] + "..."
+                        ConversationRepository.create(
+                            db=db,
+                            thread_id=thread_id,
+                            user_email=user_email,
+                            title=title
+                        )
+                    
+                    # Update message count and timestamp (count only human and AI messages)
+                    messages = result['response']['messages']
+                    message_count = ConversationRepository.count_human_and_ai_messages(messages)
+                    ConversationRepository.update_message_count_and_timestamp(
+                        db=db,
+                        thread_id=thread_id,
+                        message_count=message_count
+                    )
+                    
+                    logger.info(f"Conversation tracked for user {user_email}, thread {thread_id}")
+            except Exception as db_error:
+                logger.error(f"Failed to track conversation: {str(db_error)}")
+                # Continue despite database error
         
         return create_task_response(
             status="SUCCESS",

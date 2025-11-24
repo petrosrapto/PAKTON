@@ -2,6 +2,8 @@
 
 import { Canvas } from "@/components/canvas";
 import { AssistantProvider } from "@/contexts/AssistantContext";
+import { ConversationProvider } from "@/contexts/ConversationContext";
+import { DocumentProvider } from "@/contexts/DocumentContext";
 import { GraphProvider } from "@/contexts/GraphContext";
 import { ThreadProvider } from "@/contexts/ThreadProvider";
 import { UserProvider } from "@/contexts/UserContext";
@@ -34,14 +36,18 @@ function HomeContent() {
 
   return (
     <UserProvider>
-      <ThreadProvider>
-        <AssistantProvider>
-          <GraphProvider>
-            <Canvas />
-          </GraphProvider>
-        </AssistantProvider>
-      </ThreadProvider>
-    </UserProvider>
+      <ConversationProvider>
+        <ThreadProvider>
+          <AssistantProvider>
+            <DocumentProvider>
+                <GraphProvider>
+                  <Canvas />
+                </GraphProvider>
+              </DocumentProvider>
+            </AssistantProvider>
+          </ThreadProvider>
+        </ConversationProvider>
+      </UserProvider>
   );
 }
 

@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     zlib1g-dev \
     curl \
+    postgresql-client \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -55,6 +56,13 @@ RUN pip install --no-deps /app/packages/Archivist/
 
 # Copy everything else in API/
 COPY API /app/API
+
+# Copy and set up entrypoint script
+COPY API/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Set the entrypoint to run migrations before starting the app
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default command (assuming 'api.py' is in API/ and has "app" in it)
 CMD ["uvicorn", "API.api:app", "--host", "0.0.0.0", "--port", "5001", "--log-level", "debug"]

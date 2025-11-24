@@ -1,33 +1,82 @@
-import { createClient } from "@/hooks/utils";
 import { StreamConfig } from "./streamWorker.types";
+
+const ARCHIVIST_API_URL = "http://localhost:5001";
+const QUERY_SSE_ENDPOINT = "/query/sse";
 
 // Since workers can't directly access the client SDK, you'll need to recreate/import necessary parts
 const ctx: Worker = self as any;
 
 ctx.addEventListener("message", async (event: MessageEvent<StreamConfig>) => {
   try {
-    const { threadId, assistantId, input, modelName, modelConfigs } =
-      event.data;
+    const { threadId, input, accessToken } = event.data;
 
-    const client = createClient();
+    // Extract the user's query from the input
+    // The input.messages array contains the conversation messages
+    const messages = input.messages || [];
+    const lastMessage = messages[messages.length - 1];
+    const query = typeof lastMessage === 'string' 
+      ? lastMessage 
+      : lastMessage?.content || '';
 
-    const stream = client.runs.stream(threadId, assistantId, {
-      input: input as Record<string, unknown>,
-      streamMode: "events",
-      config: {
-        configurable: {
-          customModelName: modelName,
-          modelConfig: modelConfigs[modelName as keyof typeof modelConfigs],
-        },
-      },
+    // Prepare request body for Archivist API
+    const requestBody: any = {
+      query: query
+    };
+    
+    // Add thread_id if provided
+    if (threadId) {
+      requestBody.thread_id = threadId;
+    }
+
+    // Call Archivist SSE endpoint
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    };
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
+    const response = await fetch(`${ARCHIVIST_API_URL}${QUERY_SSE_ENDPOINT}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
     });
 
-    for await (const chunk of stream) {
-      // Serialize the chunk and post it back to the main thread
-      ctx.postMessage({
-        type: "chunk",
-        data: JSON.stringify(chunk),
-      });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            
+            // Transform Archivist SSE format to match expected format
+            // Archivist sends: { type: 'chunk', chunk: content } or { type: 'metadata', ... }
+            ctx.postMessage({
+              type: "chunk",
+              data: JSON.stringify({
+                event: "archivist_stream",
+                data: data
+              }),
+            });
+          } catch (e) {
+            console.error('Failed to parse SSE line:', line, e);
+          }
+        }
+      }
     }
 
     ctx.postMessage({ type: "done" });

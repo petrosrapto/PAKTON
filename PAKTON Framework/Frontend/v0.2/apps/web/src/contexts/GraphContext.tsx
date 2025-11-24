@@ -62,6 +62,8 @@ import { useThreadContext } from "./ThreadProvider";
 import { useAssistantContext } from "./AssistantContext";
 import { StreamWorkerService } from "@/workers/graph-stream/streamWorker";
 import { useQueryState } from "nuqs";
+import { createSupabaseClient } from "@/lib/supabase/client";
+import { useConversationContext } from "./ConversationContext";
 
 interface GraphData {
   runId: string | undefined;
@@ -117,10 +119,16 @@ export function GraphProvider({ children }: { children: ReactNode }) {
   const userData = useUserContext();
   const assistantsData = useAssistantContext();
   const threadData = useThreadContext();
+  const conversationData = useConversationContext();
   const { toast } = useToast();
   const { shareRun } = useRuns();
   const [chatStarted, setChatStarted] = useState(false);
   const [messages, setMessages] = useState<BaseMessage[]>([]);
+  
+  // Keep ref updated with latest messages
+  useEffect(() => {
+    currentMessagesRef.current = messages;
+  }, [messages]);
   const [artifact, setArtifact] = useState<ArtifactV3>();
   const [selectedBlocks, setSelectedBlocks] = useState<TextHighlight>();
   const [isStreaming, setIsStreaming] = useState(false);
@@ -142,6 +150,9 @@ export function GraphProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState(false);
   const [artifactUpdateFailed, setArtifactUpdateFailed] = useState(false);
   const [searchEnabled, setSearchEnabled] = useState(false);
+  const pendingCharsRef = useRef<string>("");
+  const streamingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentMessagesRef = useRef<BaseMessage[]>([]);
 
   const [_, setWebSearchResultsId] = useQueryState(
     WEB_SEARCH_RESULTS_QUERY_PARAM
@@ -174,6 +185,9 @@ export function GraphProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return () => {
       debouncedAPIUpdate.cancel();
+      if (streamingTimerRef.current) {
+        clearInterval(streamingTimerRef.current);
+      }
     };
   }, [debouncedAPIUpdate]);
 
@@ -226,15 +240,15 @@ export function GraphProvider({ children }: { children: ReactNode }) {
     }
     searchOrCreateEffectRan.current = true;
 
-    threadData.getThread(threadData.threadId).then((thread) => {
-      if (thread) {
-        switchSelectedThread(thread);
-        return;
-      }
-
-      // Failed to fetch thread. Remove from query params
-      threadData.setThreadId(null);
-    });
+    // Disabled: No longer fetching threads from LangGraph API
+    // Threads are managed locally via Archivist - thread will be created when user sends first message
+    // threadData.getThread(threadData.threadId).then((thread) => {
+    //   if (thread) {
+    //     switchSelectedThread(thread);
+    //     return;
+    //   }
+    //   threadData.setThreadId(null);
+    // });
   }, [threadData.threadId, userData.user]);
 
   const updateArtifact = async (
@@ -245,12 +259,13 @@ export function GraphProvider({ children }: { children: ReactNode }) {
     if (isStreaming) return;
 
     try {
-      const client = createClient();
-      await client.threads.updateState(threadId, {
-        values: {
-          artifact: artifactToUpdate,
-        },
-      });
+      // LangGraph server removed - artifacts are now local only
+      // const client = createClient();
+      // await client.threads.updateState(threadId, {
+      //   values: {
+      //     artifact: artifactToUpdate,
+      //   },
+      // });
       setIsArtifactSaved(true);
       lastSavedArtifact.current = artifactToUpdate;
     } catch (_) {
@@ -267,6 +282,12 @@ export function GraphProvider({ children }: { children: ReactNode }) {
   const streamMessageV2 = async (params: GraphInput) => {
     setFirstTokenReceived(false);
     setError(false);
+    pendingCharsRef.current = "";
+    if (streamingTimerRef.current) {
+      clearInterval(streamingTimerRef.current);
+      streamingTimerRef.current = null;
+    }
+    
     if (!assistantsData.selectedAssistant) {
       toast({
         title: "Error",
@@ -349,6 +370,10 @@ export function GraphProvider({ children }: { children: ReactNode }) {
     let thinkingMessageId = "";
 
     try {
+      // Get authentication token
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const workerService = new StreamWorkerService();
       const stream = workerService.streamData({
         threadId: currentThreadId,
@@ -356,6 +381,7 @@ export function GraphProvider({ children }: { children: ReactNode }) {
         input,
         modelName: threadData.modelName,
         modelConfigs: threadData.modelConfigs,
+        accessToken: session?.access_token,
       });
 
       // Variables to keep track of content specific to this stream
@@ -409,6 +435,145 @@ export function GraphProvider({ children }: { children: ReactNode }) {
           setError(true);
           setIsStreaming(false);
           break;
+        }
+
+        // Handle Archivist SSE stream
+        if (chunk.event === "archivist_stream") {
+          const { type, chunk: content, thread_id } = chunk.data;
+          
+          if (type === "chunk" && content) {
+            // Create message on first chunk if needed
+            if (!followupMessageId) {
+              followupMessageId = `ai-${Date.now()}`;
+              setMessages((prev) => [
+                ...prev,
+                new AIMessage({
+                  id: followupMessageId,
+                  content: "",
+                }),
+              ]);
+              setFirstTokenReceived(true);
+              
+              // Start character-by-character streaming timer
+              let charIndex = 0;
+              pendingCharsRef.current = content;
+              
+              streamingTimerRef.current = setInterval(() => {
+                if (charIndex < pendingCharsRef.current.length) {
+                  const char = pendingCharsRef.current[charIndex];
+                  charIndex++;
+                  
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === followupMessageId
+                        ? new AIMessage({
+                            id: followupMessageId,
+                            content: msg.content + char,
+                          })
+                        : msg
+                    )
+                  );
+                } else {
+                  // All pending characters rendered
+                  if (streamingTimerRef.current) {
+                    clearInterval(streamingTimerRef.current);
+                    streamingTimerRef.current = null;
+                  }
+                  pendingCharsRef.current = "";
+                }
+              }, 5);
+            } else {
+              // Append new content to pending buffer
+              pendingCharsRef.current += content;
+              
+              // Restart timer if not running
+              if (!streamingTimerRef.current) {
+                let charIndex = 0;
+                const startContent = pendingCharsRef.current;
+                
+                streamingTimerRef.current = setInterval(() => {
+                  if (charIndex < startContent.length) {
+                    const char = startContent[charIndex];
+                    charIndex++;
+                    
+                    setMessages((prev) =>
+                      prev.map((msg) =>
+                        msg.id === followupMessageId
+                          ? new AIMessage({
+                              id: followupMessageId,
+                              content: msg.content + char,
+                            })
+                          : msg
+                      )
+                    );
+                  } else {
+                    // Check if more content arrived while we were rendering
+                    if (pendingCharsRef.current.length > startContent.length) {
+                      charIndex = 0;
+                      pendingCharsRef.current = pendingCharsRef.current.slice(startContent.length);
+                    } else {
+                      if (streamingTimerRef.current) {
+                        clearInterval(streamingTimerRef.current);
+                        streamingTimerRef.current = null;
+                      }
+                      pendingCharsRef.current = "";
+                    }
+                  }
+                }, 5);
+              }
+            }
+          } else if (type === "metadata" && thread_id) {
+            // Update thread ID from Archivist response
+            if (!threadData.threadId) {
+              threadData.setThreadId(thread_id);
+            }
+            // Update currentThreadId to the actual thread_id from backend
+            currentThreadId = thread_id;
+          } else if (type === "end" || type === "complete") {
+            // Refresh conversations when stream completes
+            conversationData.refreshConversations().catch(console.error);
+            
+            // Stream finished - wait for pending characters to finish rendering BEFORE updating cache
+            const finishStreaming = () => {
+              if (pendingCharsRef.current === "" && !streamingTimerRef.current) {
+                // All characters have been rendered, NOW update the cache
+                const threadIdToUpdate = thread_id || currentThreadId;
+                if (threadIdToUpdate) {
+                  // Use the ref to get the latest messages (includes both user message and AI response)
+                  const latestMessages = currentMessagesRef.current;
+                  
+                  // Convert current messages to ConversationMessage format
+                  const conversationMessages = latestMessages.map((msg: any) => {
+                    const msgType = msg.type || (msg.constructor?.name === 'HumanMessage' ? 'human' : 'ai');
+                    
+                    if (msgType === 'human' || msgType === 'user') {
+                      return {
+                        role: 'user' as const,
+                        content: msg.content || '',
+                      };
+                    } else {
+                      return {
+                        role: 'assistant' as const,
+                        content: msg.content || '',
+                        timelineItems: msg.timelineItems || [],
+                      };
+                    }
+                  });
+                  
+                  // Update the cache with the latest messages
+                  console.log(`[GraphContext] Updating cache for thread ${threadIdToUpdate} with ${conversationMessages.length} messages`);
+                  conversationData.updateConversationMessages(threadIdToUpdate, conversationMessages);
+                }
+                
+                setIsStreaming(false);
+              } else {
+                setTimeout(finishStreaming, 50);
+              }
+            };
+            finishStreaming();
+            break;
+          }
+          continue;
         }
 
         try {
@@ -1372,6 +1537,28 @@ export function GraphProvider({ children }: { children: ReactNode }) {
       threadData.setModelConfig(DEFAULT_MODEL_NAME, DEFAULT_MODEL_CONFIG);
     }
 
+    // Check if this is a conversation-based thread (from API) or a legacy LangGraph thread
+    const isConversationThread = !thread.values || Object.keys(thread.values).length === 0;
+    
+    if (isConversationThread) {
+      // This is an API-based conversation - clear messages and artifacts
+      // since we don't have historical data, just the thread_id for future messages
+      setMessages([]);
+      setArtifact(undefined);
+      lastSavedArtifact.current = undefined;
+      
+      // Show a toast to inform the user they've switched to a conversation
+      if (thread.metadata?.thread_title) {
+        toast({
+          title: "Conversation Selected",
+          description: `Switched to "${thread.metadata.thread_title}". Continue the conversation below.`,
+          duration: 3000,
+        });
+      }
+      return;
+    }
+
+    // Legacy LangGraph thread handling
     const castValues: {
       artifact: ArtifactV3 | undefined;
       messages: Record<string, any>[] | undefined;

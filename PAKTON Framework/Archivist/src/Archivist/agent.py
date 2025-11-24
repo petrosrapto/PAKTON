@@ -47,6 +47,7 @@ class Archivist:
             self.exit_stack = AsyncExitStack()
 
             self.checkpointer: Optional[AsyncPostgresSaver] = None
+            self._conn_string: Optional[str] = None
             
             # Initialize tools
             self.tools = []
@@ -131,6 +132,8 @@ class Archivist:
             conn_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
             logger.info(f"Attempting to connect to PostgreSQL: {host}:{port}/{database}")
             
+            self._conn_string = conn_string
+            
             self.checkpointer = await self.exit_stack.enter_async_context(
                 AsyncPostgresSaver.from_conn_string(conn_string)
             )
@@ -144,6 +147,7 @@ class Archivist:
             logger.error(f"Failed to setup PostgreSQL checkpointer: {e}")
             # Fall back to no persistence
             self.checkpointer = None
+            self._conn_string = None
             logger.warning("Continuing without persistent memory")
 
     def _build_graph(self):
@@ -311,3 +315,104 @@ class Archivist:
                 "query": query,
                 "thread_id": thread_id
             }
+    
+    async def get_conversation_content(self, thread_id: str) -> List[Dict[str, Any]]:
+        """Reconstruct conversation from checkpoint - groups AI/tool messages into timeline.
+        
+        Args:
+            thread_id: The thread ID of the conversation to retrieve
+            
+        Returns:
+            List of conversation messages in timeline format
+        """
+        if not self.checkpointer:
+            raise RuntimeError("Persistent memory is not configured.")
+        if not thread_id or thread_id.startswith("local_"):
+            raise ValueError(f"Invalid thread_id: {thread_id}")
+
+        state = await self.checkpointer.aget_tuple({"configurable": {"thread_id": thread_id}})
+        messages = state.checkpoint.get("channel_values", {}).get("messages") if state else None
+        if not messages:
+            return []
+
+        def extract_tool_calls(msg) -> list:
+            """Extract tool calls in frontend-compatible format."""
+            tc = getattr(msg, "tool_calls", None)
+            if not tc:
+                return []
+
+            result = []
+            for t in tc:
+                result.append({
+                    "name": t.get("name", ""),
+                    "args": t.get("args", {}),
+                    "id": t.get("id", "")
+                })
+            return result
+
+        def finalize_assistant_message(assistant_msg: Dict[str, Any]) -> Dict[str, Any]:
+            """Finalize assistant message: extract final AI response from timeline."""
+            items = assistant_msg["timelineItems"]
+            ai_idxs = [i for i, it in enumerate(items) if it.get("messageType") == "ai"]
+
+            # Use last AI message as final content
+            if ai_idxs:
+                assistant_msg["content"] = items[ai_idxs[-1]].get("content", "")
+            else:
+                assistant_msg["content"] = ""
+
+            return assistant_msg
+
+        conversation: List[Dict[str, Any]] = []
+        current_assistant: Optional[Dict[str, Any]] = None
+
+        # Group messages: human → user, ai+tool → assistant with timeline
+        for msg in messages:
+            if not hasattr(msg, "type"):
+                continue
+
+            mtype = getattr(msg, "type", "")
+            content = getattr(msg, "content", "") or ""
+
+            if mtype in ("human", "user"):
+                # Finalize previous assistant message if exists
+                if current_assistant:
+                    conversation.append(finalize_assistant_message(current_assistant))
+                    current_assistant = None
+                
+                conversation.append({
+                    "role": "user",
+                    "content": content
+                })
+
+            elif mtype == "ai":
+                # Start or continue assistant message
+                if not current_assistant:
+                    current_assistant = {
+                        "role": "assistant",
+                        "content": "",
+                        "timelineItems": []
+                    }
+                
+                current_assistant["timelineItems"].append({
+                    "messageType": "ai",
+                    "content": content,
+                    "toolCalls": extract_tool_calls(msg)
+                })
+
+            elif mtype == "tool":
+                # Add tool response to current assistant timeline
+                if current_assistant:
+                    current_assistant["timelineItems"].append({
+                        "messageType": "tool",
+                        "content": content,
+                        "toolCallId": getattr(msg, "tool_call_id", ""),
+                        "name": getattr(msg, "name", "")
+                    })
+
+        # Finalize last assistant message if exists
+        if current_assistant:
+            conversation.append(finalize_assistant_message(current_assistant))
+
+        return conversation
+    

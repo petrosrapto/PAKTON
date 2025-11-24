@@ -8,15 +8,18 @@ Author: Raptopoulos Petros [petrosrapto@gmail.com]
 Date  : 2025/02/09
 """
 
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from celery.result import AsyncResult
+from sqlalchemy.orm import Session
 from .tasks import celery_app
 from .response_template import create_response
 from .config import Config
-from typing import Dict, Any, Optional
+from .auth import get_current_user, SupabaseUser
+from .database import get_db, ConversationRepository
+from typing import Dict, Any, Optional, List
 from .logger import logger
 import json
 import asyncio
@@ -49,11 +52,20 @@ class QueryRequest(BaseModel):
     config: Optional[dict] = {}
 
 @app.post("/query/celery", tags=["Archivist Operations"])
-async def process_query_celery(request: QueryRequest):
+async def process_query_celery(
+    request: QueryRequest,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     **Process a query using the Archivist agent**
 
     This endpoint processes a query using the Archivist agent with optional thread ID for conversation continuity.
+    Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Request Parameters:**
     - `query`: The user query to process
@@ -80,12 +92,16 @@ async def process_query_celery(request: QueryRequest):
     }
     ```
     """
-    logger.info(f"Processing Celery query request - Query length: {len(request.query)}, Thread ID: {request.thread_id}")
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Processing Celery query request - User: {user_info}, Query length: {len(request.query)}, Thread ID: {request.thread_id}")
     
     try:
+        # Pass user email to the task so it can handle conversation tracking
+        user_email = user.email if user and user.email else None
+        
         task = celery_app.send_task(
             f'{Config.SERVICE_NAME}.tasks.process_query',
-            args=[request.query, request.thread_id, request.config],
+            args=[request.query, request.thread_id, request.config, user_email],
             queue=Config.SERVICE_QUEUE
         )
         logger.info(f"Celery task created successfully - Task ID: {task.id}")
@@ -95,12 +111,20 @@ async def process_query_celery(request: QueryRequest):
         return create_response("Failed to start query processing", 500, {"error": str(e)})
 
 @app.post("/query/sse", tags=["Archivist Operations"])
-async def process_query_sse(request: QueryRequest):
+async def process_query_sse(
+    request: QueryRequest,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     **Process a query using the Archivist with Server-Sent Events (SSE)**
 
     This endpoint processes a query using the Archivist and streams the response in real-time
-    using Server-Sent Events (SSE).
+    using Server-Sent Events (SSE). Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Request Parameters:**
     - `query`: The user query to process
@@ -141,7 +165,8 @@ async def process_query_sse(request: QueryRequest):
     data: {"type": "complete"}
     ```
     """
-    logger.info(f"Processing SSE query request - Query length: {len(request.query)}, Thread ID: {request.thread_id}")
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Processing SSE query request - User: {user_info}, Query length: {len(request.query)}, Thread ID: {request.thread_id}")
     
     async def event_stream():
         try:
@@ -154,6 +179,37 @@ async def process_query_sse(request: QueryRequest):
                 result = await archivist.process_query(request.query, request.thread_id, request.config)
                 
                 logger.info(f"Query processed successfully - Result: {result}")
+                
+                # Track conversation in database if user is authenticated
+                if user and user.email:
+                    try:
+                        thread_id = result["thread_id"]
+                        
+                        # Get or create conversation
+                        conversation = ConversationRepository.get_by_thread_id(db, thread_id)
+                        if not conversation:
+                            # Use the first 500 characters of the query as the title
+                            title = request.query[:500] if len(request.query) <= 500 else request.query[:497] + "..."
+                            ConversationRepository.create(
+                                db=db,
+                                thread_id=thread_id,
+                                user_email=user.email,
+                                title=title
+                            )
+                        
+                        # Update message count and timestamp (count only human and AI messages)
+                        messages = result['response']['messages']
+                        message_count = ConversationRepository.count_human_and_ai_messages(messages)
+                        ConversationRepository.update_message_count_and_timestamp(
+                            db=db,
+                            thread_id=thread_id,
+                            message_count=message_count
+                        )
+                        
+                        logger.info(f"Conversation tracked for user {user.email}, thread {thread_id}")
+                    except Exception as db_error:
+                        logger.error(f"Failed to track conversation: {str(db_error)}")
+                        # Continue despite database error
                 
                 # Format as SSE
                 data = {
@@ -189,13 +245,21 @@ async def process_query_sse(request: QueryRequest):
     )
 
 @app.post("/query/stream_steps/sse", tags=["Archivist Operations"])
-async def process_query_stream_steps_sse(request: QueryRequest):
+async def process_query_stream_steps_sse(
+    request: QueryRequest,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     **Process a query using Archivist with streaming intermediate steps via Server-Sent Events (SSE)**
 
     This endpoint processes a query using the Archivist and streams intermediate steps in real-time
     using Server-Sent Events (SSE). Unlike the regular SSE endpoint, this one shows the agent's
-    thinking process and intermediate steps.
+    thinking process and intermediate steps. Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Request Parameters:**
     - `query`: The user query to process
@@ -235,7 +299,8 @@ async def process_query_stream_steps_sse(request: QueryRequest):
     data: {"type": "complete"}
     ```
     """
-    logger.info(f"Processing streaming steps SSE query request - Query length: {len(request.query)}, Thread ID: {request.thread_id}")
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Processing streaming steps SSE query request - User: {user_info}, Query length: {len(request.query)}, Thread ID: {request.thread_id}")
     
     async def event_stream():
         try:
@@ -247,10 +312,12 @@ async def process_query_stream_steps_sse(request: QueryRequest):
                 logger.debug("Archivist initialized successfully for streaming steps")
                 
                 response_thread_id = None
+                all_chunks = []  # Store all chunks to count messages later
                 
                 async for result in archivist.process_query_stream(request.query, request.thread_id, request.config):
                     response_thread_id = result["thread_id"]
                     chunk = result["chunk"]
+                    all_chunks.append(chunk)  # Store chunk for later counting
                     
                     # Handle different types of chunks based on the agent's output
                     if "messages" in chunk and chunk["messages"]:
@@ -280,6 +347,41 @@ async def process_query_stream_steps_sse(request: QueryRequest):
                             }
                         }
                         yield f"data: {json.dumps(step_data)}\n\n"
+                
+                # Track conversation in database after streaming completes
+                if user and user.email and response_thread_id:
+                    try:
+                        # Get or create conversation
+                        conversation = ConversationRepository.get_by_thread_id(db, response_thread_id)
+                        if not conversation:
+                            # Use the first 500 characters of the query as the title
+                            title = request.query[:500] if len(request.query) <= 500 else request.query[:497] + "..."
+                            ConversationRepository.create(
+                                db=db,
+                                thread_id=response_thread_id,
+                                user_email=user.email,
+                                title=title
+                            )
+                        
+                        # Update message count and timestamp (count only human and AI messages)
+                        # Extract all messages from collected chunks
+                        all_messages = []
+                        for chunk in all_chunks:
+                            if "messages" in chunk and chunk["messages"]:
+                                all_messages.extend(chunk["messages"])
+                        
+                        # Count only human and AI messages
+                        message_count = ConversationRepository.count_human_and_ai_messages(all_messages)
+                        ConversationRepository.update_message_count_and_timestamp(
+                            db=db,
+                            thread_id=response_thread_id,
+                            message_count=message_count
+                        )
+                        
+                        logger.info(f"Conversation tracked for user {user.email}, thread {response_thread_id}")
+                    except Exception as db_error:
+                        logger.error(f"Failed to track conversation: {str(db_error)}")
+                        # Continue despite database error
             
                 # Send completion event
                 yield f"data: {json.dumps({'type': 'complete'})}\n\n"
@@ -309,12 +411,18 @@ async def process_query_stream_steps_sse(request: QueryRequest):
 @app.post("/index/document/", tags=["Archivist Operations"])
 async def index_document(
     metadata: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    user: Optional[SupabaseUser] = Depends(get_current_user)
 ):
     """
     **Index a document with metadata**
 
     This endpoint accepts a file and its associated metadata for indexing.
+    Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Request Format:** `multipart/form-data`
     
@@ -338,6 +446,9 @@ async def index_document(
     **Response:**
     - Returns a **task_id** that can be used to track the indexing operation.
     """
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Indexing document - User: {user_info}, File: {file.filename}")
+    
     try:
         # Parse the metadata string into a dictionary
         metadata_dict = json.loads(metadata)
@@ -370,11 +481,19 @@ class ResearchRequest(BaseModel):
     search_config: Optional[Dict[str, Any]] = None
 
 @app.post("/research/", tags=["Researcher Operations"])
-async def research(request: ResearchRequest):
+async def research(
+    request: ResearchRequest,
+    user: Optional[SupabaseUser] = Depends(get_current_user)
+):
     """
     **Execute a research operation**
 
     This endpoint processes a research query using the Researcher agent.
+    Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Request Parameters:**
     - `query`: The search query to research
@@ -385,6 +504,9 @@ async def research(request: ResearchRequest):
     **Response:**
     - Returns a **task_id** that can be used to track the research operation.
     """
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Research request - User: {user_info}, Query: {request.query}")
+    
     task = celery_app.send_task(
         f'{Config.SERVICE_NAME}.tasks.research',
         args=[request.query, request.instructions, request.agent_config, request.search_config],
@@ -401,8 +523,31 @@ class InterrogationRequest(BaseModel):
     userInstructions: str = ""
 
 @app.post("/interrogation/", tags=["Interrogator Operations"])
-async def interrogation(request: InterrogationRequest):
+async def interrogation(
+    request: InterrogationRequest,
+    user: Optional[SupabaseUser] = Depends(get_current_user)
+):
+    """
+    **Execute an interrogation operation**
 
+    This endpoint processes an interrogation query using the Interrogator agent.
+    Requires authentication.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+
+    **Request Parameters:**
+    - `userQuery`: The user's query to interrogate
+    - `userContext`: Optional context for the interrogation
+    - `userInstructions`: Optional instructions for the interrogator agent
+
+    **Response:**
+    - Returns a **task_id** that can be used to track the interrogation operation.
+    """
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Interrogation request - User: {user_info}, Query: {request.userQuery}")
+    
     task = celery_app.send_task(
         f'{Config.SERVICE_NAME}.tasks.interrogation',
         args=[request.userQuery, request.userContext, request.userInstructions],
@@ -411,9 +556,18 @@ async def interrogation(request: InterrogationRequest):
     return create_response("Interrogation operation started", 202, {"task_id": task.id})
 
 @app.get("/task_status/{task_id}", tags=["Task Management"])
-async def get_task_status(task_id: str):
+async def get_task_status(
+    task_id: str,
+    user: Optional[SupabaseUser] = Depends(get_current_user)
+):
     """
     **Check the status of an asynchronous task**
+
+    Requires authentication to prevent unauthorized access to task results.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
 
     **Example Call:**
     ```
@@ -437,6 +591,8 @@ async def get_task_status(task_id: str):
     }
     ```
     """
+    user_info = f"{user.email} ({user.user_id})" if user else "anonymous (auth disabled)"
+    logger.info(f"Task status check - User: {user_info}, Task ID: {task_id}")
 
     task_result = AsyncResult(task_id, app=celery_app)
     return create_response(
@@ -447,6 +603,257 @@ async def get_task_status(task_id: str):
             "task_response": task_result.result if task_result.ready() else None
         }
     )
+
+@app.get("/conversations", tags=["Conversation Management"])
+async def get_user_conversations(
+    limit: Optional[int] = 50,
+    offset: int = 0,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **Get all conversations for the authenticated user**
+
+    Retrieves a list of conversations associated with the authenticated user,
+    ordered by most recently updated first.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+
+    **Query Parameters:**
+    - `limit`: Maximum number of conversations to return (default: 50)
+    - `offset`: Number of conversations to skip for pagination (default: 0)
+
+    **Response Example:**
+    ```json
+    {
+        "message": "Conversations retrieved successfully",
+        "statusCode": 200,
+        "data": {
+            "conversations": [
+                {
+                    "thread_id": "thread_123",
+                    "user_email": "user@example.com",
+                    "title": "Weather Discussion",
+                    "last_message": "The weather is sunny today...",
+                    "created_at": "2025-11-23T10:00:00",
+                    "updated_at": "2025-11-23T12:30:00"
+                }
+            ],
+            "total": 10,
+            "limit": 50,
+            "offset": 0
+        }
+    }
+    ```
+    """
+    if not user or not user.email:
+        return create_response("Authentication required", 401, {})
+    
+    user_info = f"{user.email} ({user.user_id})"
+    logger.info(f"Fetching conversations for user: {user_info}")
+    
+    try:
+        conversations = ConversationRepository.get_by_user_email(
+            db, user.email, limit=limit, offset=offset
+        )
+        total = ConversationRepository.count_by_user(db, user.email)
+        
+        return create_response(
+            "Conversations retrieved successfully",
+            200,
+            {
+                "conversations": [conv.to_dict() for conv in conversations],
+                "total": total,
+                "limit": limit,
+                "offset": offset
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving conversations: {str(e)}")
+        return create_response("Failed to retrieve conversations", 500, {"error": str(e)})
+
+@app.get("/conversations/{thread_id}", tags=["Conversation Management"])
+async def get_conversation(
+    thread_id: str,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **Get a specific conversation by thread ID**
+
+    Retrieves details of a specific conversation. Users can only access their own conversations.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+
+    **Response Example:**
+    ```json
+    {
+        "message": "Conversation retrieved successfully",
+        "statusCode": 200,
+        "data": {
+            "thread_id": "thread_123",
+            "user_email": "user@example.com",
+            "title": "Weather Discussion",
+            "last_message": "The weather is sunny today...",
+            "created_at": "2025-11-23T10:00:00",
+            "updated_at": "2025-11-23T12:30:00"
+        }
+    }
+    ```
+    """
+    if not user or not user.email:
+        return create_response("Authentication required", 401, {})
+    
+    logger.info(f"Fetching conversation {thread_id} for user {user.email}")
+    
+    try:
+        conversation = ConversationRepository.get_by_thread_id(db, thread_id)
+        
+        if not conversation:
+            return create_response("Conversation not found", 404, {})
+        
+        # Verify the conversation belongs to the user
+        if conversation.user_email != user.email:
+            return create_response("Access denied", 403, {})
+        
+        return create_response(
+            "Conversation retrieved successfully",
+            200,
+            conversation.to_dict()
+        )
+    except Exception as e:
+        logger.error(f"Error retrieving conversation: {str(e)}")
+        return create_response("Failed to retrieve conversation", 500, {"error": str(e)})
+
+@app.get("/conversations/{thread_id}/messages", tags=["Conversation Management"])
+async def get_conversation_messages(
+    thread_id: str,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **Get conversation messages by thread ID**
+
+    Retrieves the full message history of a specific conversation thread.
+    Users can only access their own conversations.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+
+    **Response Example:**
+    ```json
+    {
+        "message": "Conversation messages retrieved successfully",
+        "statusCode": 200,
+        "data": {
+            "thread_id": "thread_123",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "What is the weather like?"
+                },
+                {
+                    "role": "assistant",
+                    "content": "The weather is sunny today.",
+                    "timelineItems": [...]
+                }
+            ]
+        }
+    }
+    ```
+    """
+    if not user or not user.email:
+        return create_response("Authentication required", 401, {})
+    
+    logger.info(f"Fetching conversation messages for thread {thread_id}, user {user.email}")
+    
+    try:
+        # First verify the conversation exists and belongs to the user
+        conversation = ConversationRepository.get_by_thread_id(db, thread_id)
+        
+        if not conversation:
+            return create_response("Conversation not found", 404, {})
+        
+        # Verify the conversation belongs to the user
+        if conversation.user_email != user.email:
+            return create_response("Access denied", 403, {})
+        
+        # Get the conversation messages from Archivist checkpointer
+        from Archivist import Archivist
+        
+        async with Archivist() as archivist:
+            messages = await archivist.get_conversation_content(thread_id)
+        
+        return create_response(
+            "Conversation messages retrieved successfully",
+            200,
+            {
+                "thread_id": thread_id,
+                "messages": messages
+            }
+        )
+    except ValueError as e:
+        logger.error(f"Invalid thread_id: {str(e)}")
+        return create_response("Invalid thread ID", 400, {"error": str(e)})
+    except RuntimeError as e:
+        logger.error(f"Configuration error: {str(e)}")
+        return create_response("Service configuration error", 500, {"error": str(e)})
+    except Exception as e:
+        logger.error(f"Error retrieving conversation messages: {str(e)}")
+        return create_response("Failed to retrieve conversation messages", 500, {"error": str(e)})
+
+@app.delete("/conversations/{thread_id}", tags=["Conversation Management"])
+async def delete_conversation(
+    thread_id: str,
+    user: Optional[SupabaseUser] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    **Delete a conversation**
+
+    Deletes a specific conversation. Users can only delete their own conversations.
+    Note: This only deletes the conversation record, not the actual messages in the
+    checkpoint database.
+
+    **Authentication:**
+    - Requires a valid Supabase JWT token in the Authorization header
+    - Format: `Authorization: Bearer <token>`
+
+    **Response Example:**
+    ```json
+    {
+        "message": "Conversation deleted successfully",
+        "statusCode": 200,
+        "data": {}
+    }
+    ```
+    """
+    if not user or not user.email:
+        return create_response("Authentication required", 401, {})
+    
+    logger.info(f"Deleting conversation {thread_id} for user {user.email}")
+    
+    try:
+        conversation = ConversationRepository.get_by_thread_id(db, thread_id)
+        
+        if not conversation:
+            return create_response("Conversation not found", 404, {})
+        
+        # Verify the conversation belongs to the user
+        if conversation.user_email != user.email:
+            return create_response("Access denied", 403, {})
+        
+        ConversationRepository.delete(db, thread_id)
+        
+        return create_response("Conversation deleted successfully", 200, {})
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {str(e)}")
+        return create_response("Failed to delete conversation", 500, {"error": str(e)})
 
 @app.get("/health", tags=["Health Check"])
 def health_check():

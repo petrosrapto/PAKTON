@@ -3,7 +3,6 @@ import { cn } from "@/lib/utils";
 import {
   ArtifactCodeV3,
   ArtifactMarkdownV3,
-  ProgrammingLanguageOptions,
 } from "@opencanvas/shared/types";
 import { EditorView } from "@codemirror/view";
 import { HumanMessage } from "@langchain/core/messages";
@@ -35,7 +34,6 @@ interface SelectionBox {
 function ArtifactRendererComponent(props: ArtifactRendererProps) {
   const { graphData } = useGraphContext();
   const { selectedAssistant } = useAssistantContext();
-  const { user } = useUserContext();
   const {
     artifact,
     selectedBlocks,

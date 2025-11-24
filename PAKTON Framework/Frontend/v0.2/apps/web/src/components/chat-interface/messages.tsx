@@ -16,7 +16,7 @@ import {
 import React, { Dispatch, SetStateAction, type FC } from "react";
 
 import { MarkdownText } from "@/components/ui/assistant-ui/markdown-text";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FeedbackButton } from "./feedback";
 import { TighterText } from "../ui/header";
 import { useFeedback } from "@/hooks/useFeedback";
@@ -27,6 +27,7 @@ import { Button } from "../ui/button";
 import { WEB_SEARCH_RESULTS_QUERY_PARAM } from "@/constants";
 import { BookOpen, FileText, Globe } from "lucide-react";
 import { useQueryState } from "nuqs";
+import { useUserContext } from "@/contexts/UserContext";
 
 interface AssistantMessageProps {
   runId: string | undefined;
@@ -125,10 +126,6 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
   const isThinkingMessage = message.id.startsWith("thinking-");
   const isWebSearchMessage = message.id.startsWith("web-search-results-");
 
-  // Extract citation info for contract analysis (simulated in this example)
-  const hasCitation = message.id && !isThinkingMessage && !isWebSearchMessage;
-  const citationText = "Section 5.2, Paragraph 3: 'The Contractor shall indemnify and hold harmless...'";
-
   if (isThinkingMessage) {
     return <ThinkingAssistantMessage message={message} />;
   }
@@ -138,16 +135,13 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
   }
 
   return (
-    <MessagePrimitive.Root className="relative grid w-full max-w-2xl grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] py-4">
+    <MessagePrimitive.Root className="relative grid w-[90%] grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] py-4">
       <Avatar className="col-start-1 row-span-full row-start-1 mr-4 bg-blue-100">
         <AvatarFallback className="text-blue-800">🧑‍💼</AvatarFallback>
       </Avatar>
 
-      <div className="text-foreground col-span-2 col-start-2 row-start-1 my-1.5 max-w-xl break-words leading-7">
+      <div className="text-foreground col-span-2 col-start-2 row-start-1 my-1.5 break-words leading-7">
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
-        
-        {/* Display contract citation if available */}
-        {hasCitation && <ContractCitation citation={citationText} />}
         
         {isLast && runId && (
           <MessagePrimitive.If lastOrHover assistant>
@@ -166,17 +160,40 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
 export const UserMessage: FC = () => {
   const msg = useMessage(getExternalStoreMessage<HumanMessage>);
   const humanMessage = Array.isArray(msg) ? msg[0] : msg;
+  const { user } = useUserContext();
 
   if (humanMessage?.additional_kwargs?.[OC_HIDE_FROM_UI_KEY]) return null;
 
+  const userMetadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const metadataName = typeof userMetadata.full_name === "string" ? userMetadata.full_name : undefined;
+  const metadataAvatar = typeof userMetadata.avatar_url === "string" ? userMetadata.avatar_url : undefined;
+
+  const additionalKwargs = (humanMessage?.additional_kwargs ?? {}) as Record<string, unknown>;
+  const messageAvatar = typeof additionalKwargs.avatar_url === "string" ? additionalKwargs.avatar_url : undefined;
+  const messageName = typeof additionalKwargs.display_name === "string" ? additionalKwargs.display_name : undefined;
+
+  const avatarUrl = metadataAvatar ?? messageAvatar ?? undefined;
+  const displayName = metadataName ?? messageName ?? user?.email ?? "You";
+  const fallbackInitial = displayName.charAt(0)?.toUpperCase() ?? "Y";
+
   return (
-    <MessagePrimitive.Root className="grid w-full max-w-2xl auto-rows-auto grid-cols-[minmax(72px,1fr)_auto] gap-y-2 py-4">
+    <MessagePrimitive.Root className="flex w-[90%] flex-col items-end gap-2 py-4">
       <ContextDocumentsUI
         message={humanMessage}
-        className="col-start-2 row-start-1"
+        className="justify-self-end"
       />
-      <div className="bg-muted text-foreground col-start-2 row-start-2 max-w-xl break-words rounded-3xl px-5 py-2.5">
-        <MessagePrimitive.Content />
+      <div className="flex items-end gap-3 w-full justify-end">
+        <div className="bg-muted text-foreground max-w-[85%] break-words rounded-3xl px-5 py-2.5">
+          <MessagePrimitive.Content />
+        </div>
+        <Avatar className="bg-muted flex-shrink-0">
+          {avatarUrl ? (
+            <AvatarImage src={avatarUrl} alt={displayName} />
+          ) : null}
+          <AvatarFallback className="font-medium text-muted-foreground">
+            {fallbackInitial}
+          </AvatarFallback>
+        </Avatar>
       </div>
     </MessagePrimitive.Root>
   );

@@ -110,12 +110,14 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const getAssistants = async (userId: string): Promise<void> => {
     setIsLoadingAllAssistants(true);
     try {
-      const client = createClient();
-      const response = await client.assistants.search({
-        metadata: {
-          user_id: userId,
-        },
-      });
+      // LangGraph server removed - return empty assistants to prevent API errors
+      // const client = createClient();
+      // const response = await client.assistants.search({
+      //   metadata: {
+      //     user_id: userId,
+      //   },
+      // });
+      const response: any[] = [];
 
       setAssistants({
         ...response,
@@ -134,8 +136,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const deleteAssistant = async (assistantId: string): Promise<boolean> => {
     setIsDeletingAssistant(true);
     try {
-      const client = createClient();
-      await client.assistants.delete(assistantId);
+      // LangGraph server removed - just update local state
+      // const client = createClient();
+      // await client.assistants.delete(assistantId);
 
       if (selectedAssistant?.assistant_id === assistantId) {
         // Get the first assistant in the list to set as
@@ -167,12 +170,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }: CreateCustomAssistantArgs): Promise<Assistant | undefined> => {
     setIsCreatingAssistant(true);
     try {
-      const client = createClient();
+      // LangGraph server removed - create stub assistant locally
       const { tools, systemPrompt, name, documents, ...metadata } =
         newAssistant;
-      const createdAssistant = await client.assistants.create({
-        graphId: "agent",
+      
+      const createdAssistant: Assistant = {
+        assistant_id: `asst_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        graph_id: "agent",
         name,
+        version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         metadata: {
           user_id: userId,
           ...metadata,
@@ -184,8 +192,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             documents,
           },
         },
-        ifExists: "do_nothing",
-      });
+      };
 
       setAssistants((prev) => [...prev, createdAssistant]);
       setSelectedAssistant(createdAssistant);
@@ -210,12 +217,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }: EditCustomAssistantArgs): Promise<Assistant | undefined> => {
     setIsEditingAssistant(true);
     try {
-      const client = createClient();
+      // LangGraph server removed - update stub assistant locally
       const { tools, systemPrompt, name, documents, ...metadata } =
         editedAssistant;
-      const response = await client.assistants.update(assistantId, {
+      
+      const response: Assistant = {
+        assistant_id: assistantId,
+        graph_id: "agent",
         name,
-        graphId: "agent",
+        version: 1,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         metadata: {
           user_id: userId,
           ...metadata,
@@ -227,7 +239,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
             documents,
           },
         },
-      });
+      };
 
       setAssistants((prev) =>
         prev.map((assistant) => {
@@ -321,13 +333,15 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
     // No cookie found. First, search for all assistants under the user's ID
     try {
-      userAssistants = await client.assistants.search({
-        graphId: "agent",
-        metadata: {
-          user_id: userId,
-        },
-        limit: 100,
-      });
+      // LangGraph server removed - return empty assistants to prevent API errors
+      // userAssistants = await client.assistants.search({
+      //   graphId: "agent",
+      //   metadata: {
+      //     user_id: userId,
+      //   },
+      //   limit: 100,
+      // });
+      userAssistants = [];
     } catch (e) {
       console.error("Failed to get default assistant", e);
     }

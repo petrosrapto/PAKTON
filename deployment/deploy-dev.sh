@@ -49,7 +49,7 @@ docker-compose -f docker-compose.dev.yml down --remove-orphans || true
 
 # Clean up Docker resources to free space
 log_info "Cleaning up Docker resources..."
-docker system prune -f --volumes
+docker system prune -a --volumes -f
 docker image prune -a -f
 
 # Copy environment files from secure location

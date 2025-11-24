@@ -119,7 +119,6 @@ services:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       SERVICE_NAME: "multiagentframework_service"
-      DATABASE_URL: "postgresql://\$\${POSTGRES_USER}:\$\${POSTGRES_PASSWORD}@postgres:5432/\$\${POSTGRES_DB}"
       PYTHONUNBUFFERED: "1"
     ports:
       - "5001:5001"
@@ -152,7 +151,6 @@ services:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
       SERVICE_NAME: "multiagentframework_service"
-      DATABASE_URL: "postgresql://\$\${POSTGRES_USER}:\$\${POSTGRES_PASSWORD}@postgres:5432/\$\${POSTGRES_DB}"
       PYTHONUNBUFFERED: "1"
     restart: always
     volumes:

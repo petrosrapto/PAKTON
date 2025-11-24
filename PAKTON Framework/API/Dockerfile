@@ -6,8 +6,8 @@
 # Author: Raptopoulos Petros [petrosrapto@gmail.com]
 # Date  : 2025/03/10
 
-# Use an ARM64-compatible Python base image
-FROM --platform=linux/arm64 python:3.11.11-slim
+# Use Python base image (will match build platform automatically)
+FROM python:3.11.11-slim
 
 WORKDIR /app
 

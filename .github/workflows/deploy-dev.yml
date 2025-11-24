@@ -44,16 +44,16 @@ jobs:
           sep-tags: ','  
           sep-labels: ','
 
-      - name: Build and push API Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./PAKTON Framework
-          file: ./PAKTON Framework/API/Dockerfile
-          push: true
-          tags: ${{ steps.meta-api.outputs.tags }}
-          labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    #   - name: Build and push API Docker image
+    #     uses: docker/build-push-action@v5
+    #     with:
+    #       context: ./PAKTON Framework
+    #       file: ./PAKTON Framework/API/Dockerfile
+    #       push: true
+    #       tags: ${{ steps.meta-api.outputs.tags }}
+    #       labels: ${{ steps.meta-api.outputs.labels }}
+    #       cache-from: type=gha
+    #       cache-to: type=gha,mode=max
 
       - name: Extract metadata for Frontend
         id: meta-frontend
@@ -68,16 +68,16 @@ jobs:
           sep-tags: ','
           sep-labels: ','
 
-      - name: Build and push Frontend Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./PAKTON Framework/Frontend/v0.2
-          file: ./PAKTON Framework/Frontend/v0.2/Dockerfile
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    #   - name: Build and push Frontend Docker image
+    #     uses: docker/build-push-action@v5
+    #     with:
+    #       context: ./PAKTON Framework/Frontend/v0.2
+    #       file: ./PAKTON Framework/Frontend/v0.2/Dockerfile
+    #       push: true
+    #       tags: ${{ steps.meta-frontend.outputs.tags }}
+    #       labels: ${{ steps.meta-frontend.outputs.labels }}
+    #       cache-from: type=gha
+    #       cache-to: type=gha,mode=max
 
       - name: Deploy to Dev EC2
         uses: appleboy/ssh-action@v1.0.0

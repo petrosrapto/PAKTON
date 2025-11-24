@@ -45,11 +45,12 @@ mkdir -p "$DEPLOY_DIR/data/postgres"
 # Stop existing containers
 log_info "Stopping existing containers..."
 cd "$DEPLOY_DIR"
-docker-compose -f docker-compose.dev.yml down || true
+docker-compose -f docker-compose.dev.yml down --remove-orphans || true
 
-# Clean up old images (keep last 3 versions)
-log_info "Cleaning up old Docker images..."
-docker image prune -f
+# Clean up Docker resources to free space
+log_info "Cleaning up Docker resources..."
+docker system prune -f --volumes
+docker image prune -a -f
 
 # Copy environment files from secure location
 log_info "Setting up environment variables..."

@@ -35,7 +35,7 @@ jobs:
         id: meta-api
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/pakton-api
+          images: ${{ env.REGISTRY }}/petrosrapto/pakton/pakton-api
           tags: |
             type=ref,event=branch
             type=sha,prefix=dev-
@@ -55,7 +55,7 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/pakton-frontend
+          images: ${{ env.REGISTRY }}/petrosrapto/pakton/pakton-frontend
           tags: |
             type=ref,event=branch
             type=sha,prefix=dev-
@@ -104,13 +104,18 @@ jobs:
           port: ${{ secrets.DEV_EC2_PORT || 22 }}
           envs: DEV_SUPABASE_URL,DEV_SUPABASE_JWT_SECRET,DEV_ENABLE_AUTHENTICATION,DEV_POSTGRES_DB,DEV_POSTGRES_USER,DEV_POSTGRES_PASSWORD,DEV_HUGGINGFACE_TOKEN,DEV_AWS_ACCESS_KEY_ID,DEV_AWS_SECRET_ACCESS_KEY,DEV_AWS_REGION_NAME,DEV_EMBEDDINGS_API_KEY,DEV_OPENAI_API_KEY,DEV_TAVILY_API_KEY,DEV_LANGCHAIN_API_KEY,DEV_LANGCHAIN_PROJECT,DEV_PINECONE_API_KEY,DEV_GOOGLE_API_KEY,DEV_NEXT_PUBLIC_SUPABASE_URL,DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY,DEV_NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS,DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS,DEV_NEXT_PUBLIC_GOOGLE_CLIENT_ID,DEV_LOCAL_DEVELOPMENT
           script: |
-            # Navigate to deployment directory
+            # Create deployment directory if it doesn't exist
+            mkdir -p /home/${{ secrets.DEV_EC2_USER }}/pakton-dev
             cd /home/${{ secrets.DEV_EC2_USER }}/pakton-dev
             
-            # Pull latest code
+            # Clone or pull latest code
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+            
             git fetch origin
-            git checkout develop
-            git pull origin develop
+            git checkout ${{ github.ref_name }}
+            git pull origin ${{ github.ref_name }}
             
             # Create environment files from secrets
             bash ./deployment/scripts/create-env-files.sh ./deployment/env
@@ -118,12 +123,13 @@ jobs:
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull latest images
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/pakton-api:develop
-            docker pull ${{ env.REGISTRY }}/${{ github.repository }}/pakton-frontend:develop
+            # Pull latest images with lowercase names
+            docker pull ghcr.io/petrosrapto/pakton/pakton-api:${{ github.ref_name }}
+            docker pull ghcr.io/petrosrapto/pakton/pakton-frontend:${{ github.ref_name }}
             
             # Run deployment script
-            export GITHUB_REPOSITORY="${{ github.repository }}"
+            export GITHUB_REPOSITORY="petrosrapto/pakton"
+            export BRANCH_NAME="${{ github.ref_name }}"
             bash ./deployment/deploy-dev.sh
 
       - name: Verify deployment

@@ -14,7 +14,8 @@ echo "🚀 Starting PAKTON dev deployment..."
 # Configuration
 DEPLOY_DIR="/home/$(whoami)/pakton-dev"
 REGISTRY="ghcr.io"
-REPO_NAME="${GITHUB_REPOSITORY:-petrosrapto/pakton}"  # Update with your actual repo
+REPO_NAME="${GITHUB_REPOSITORY:-petrosrapto/pakton}"  # Lowercase repo name
+BRANCH_NAME="${BRANCH_NAME:-develop}"  # Default to develop if not set
 ENV_DIR="$DEPLOY_DIR/deployment/env"
 
 # Colors for output
@@ -105,7 +106,7 @@ services:
       - pakton-dev-network
 
   multiagentframework_service:
-    image: ${REGISTRY}/${REPO_NAME}/pakton-api:develop
+    image: ${REGISTRY}/${REPO_NAME}/pakton-api:${BRANCH_NAME}
     container_name: pakton-dev-api
     depends_on:
       - rabbitmq
@@ -128,7 +129,7 @@ services:
       - pakton-dev-network
 
   multiagentframework_worker:
-    image: ${REGISTRY}/${REPO_NAME}/pakton-api:develop
+    image: ${REGISTRY}/${REPO_NAME}/pakton-api:${BRANCH_NAME}
     container_name: pakton-dev-worker
     depends_on:
       - multiagentframework_service
@@ -159,7 +160,7 @@ services:
       - pakton-dev-network
 
   web-app:
-    image: ${REGISTRY}/${REPO_NAME}/pakton-frontend:develop
+    image: ${REGISTRY}/${REPO_NAME}/pakton-frontend:${BRANCH_NAME}
     container_name: pakton-dev-frontend
     env_file:
       - "PAKTON Framework/Frontend/v0.2/apps/web/.env"

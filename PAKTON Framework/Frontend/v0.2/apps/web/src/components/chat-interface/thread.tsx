@@ -1,5 +1,6 @@
 import { useGraphContext } from "@/contexts/GraphContext";
 import { useToast } from "@/hooks/use-toast";
+import { ARCHIVIST_API_URL } from "@/constants";
 import { ProgrammingLanguageOptions } from "@opencanvas/shared/types";
 import { ThreadPrimitive, useComposerRuntime } from "@assistant-ui/react";
 import { Thread as ThreadType } from "@langchain/langgraph-sdk";
@@ -133,7 +134,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   };
 
   const pollTaskStatus = async (taskId: string, maxRetries = 30, initialInterval = 2000, backoffFactor = 1.2) => {
-    const ARCHIVIST_API_URL = "http://localhost:5001";
     const TERMINAL_STATUSES = new Set(['SUCCESS', 'FAILURE', 'REVOKED', 'IGNORED']);
     let currentInterval = initialInterval;
     
@@ -176,7 +176,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   };
 
   const processUploadedFile = async (file: File) => {
-    const ARCHIVIST_API_URL = "http://localhost:5001";
     const MIME_TYPES: Record<string, string> = {
       '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       '.pdf': 'application/pdf',

@@ -58,6 +58,11 @@ server {
     location / {
         limit_req zone=dev_limit burst=200 nodelay;
         
+        # Increase buffer sizes for OAuth callbacks
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;

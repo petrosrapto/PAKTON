@@ -64,11 +64,8 @@ docker image prune -a -f
 # Copy environment files from secure location
 log_info "Setting up environment variables..."
 
-# Frontend environment variables
-cp "$ENV_DIR/frontend.env" "$DEPLOY_DIR/PAKTON Framework/Frontend/v0.2/apps/web/.env"
-
-# For the containerized API, we'll mount .env files directly into the container
-# at the locations where the packages expect them
+# API environment files will be mounted into containers
+# Frontend env variables are baked into the Docker image at build time (no runtime files needed)
 log_info "Environment files prepared for container mounting"
 
 # Update docker-compose to use pulled images
@@ -170,11 +167,6 @@ services:
   web-app:
     image: ${REGISTRY}/${REPO_NAME}/pakton-frontend:${BRANCH_NAME}
     container_name: pakton-dev-frontend
-    env_file:
-      - "PAKTON Framework/Frontend/v0.2/apps/web/.env"
-    environment:
-      - NODE_ENV=production
-      - PORT=3000
     ports:
       - "3000:3000"
     restart: unless-stopped

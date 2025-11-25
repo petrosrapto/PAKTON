@@ -71,7 +71,6 @@ Required GitHub Secrets for PAKTON CI/CD deployment.
 | `DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase anon key |
 | `DEV_NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS` | ✅ | Supabase docs URL |
 | `DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS` | ✅ | Supabase docs key |
-| `DEV_NEXT_PUBLIC_GOOGLE_CLIENT_ID` | ❌ | Google OAuth (optional) |
 | `DEV_LOCAL_DEVELOPMENT` | ✅ | Set to `true` for dev |
 
 ---

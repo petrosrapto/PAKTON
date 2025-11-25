@@ -19,6 +19,24 @@ RUN yarn install --frozen-lockfile
 FROM base AS builder
 WORKDIR /app
 
+# Accept build arguments for Next.js public env variables
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS
+ARG NEXT_PUBLIC_ARCHIVIST_API_URL
+ARG NODE_ENV=production
+ARG LOCAL_DEVELOPMENT=false
+
+# Set them as environment variables for the build
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS=$NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS=$NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS
+ENV NEXT_PUBLIC_ARCHIVIST_API_URL=$NEXT_PUBLIC_ARCHIVIST_API_URL
+ENV NODE_ENV=$NODE_ENV
+ENV LOCAL_DEVELOPMENT=$LOCAL_DEVELOPMENT
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
@@ -34,6 +52,7 @@ RUN yarn build
 FROM base AS runner
 WORKDIR /app
 
+# These are set at build time and baked into the image
 ENV NODE_ENV=production
 ENV PORT=3000
 

@@ -128,8 +128,6 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS=<your-supabase-url-documents>
 NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS=<your-supabase-anon-key-documents>
 
-# Optional: Google OAuth
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=<your-google-client-id>
 ```
 
 Then, setup authentication with Supabase.

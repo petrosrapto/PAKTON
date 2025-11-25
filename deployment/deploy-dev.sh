@@ -114,6 +114,8 @@ services:
       - rabbitmq
       - redis
       - postgres
+    env_file:
+      - $ENV_DIR/api.env
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
@@ -148,6 +150,8 @@ services:
       "--concurrency=4",
       "--loglevel=debug"
     ]
+    env_file:
+      - $ENV_DIR/api.env
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"

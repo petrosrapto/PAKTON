@@ -1,3 +1,9 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// Load environment variables from the root .env file
+config({ path: resolve(process.cwd(), '../../.env') });
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',

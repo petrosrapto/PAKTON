@@ -167,8 +167,8 @@ services:
   web-app:
     image: ${REGISTRY}/${REPO_NAME}/pakton-frontend:${BRANCH_NAME}
     container_name: pakton-dev-frontend
-    env_file:
-      - $ENV_DIR/frontend.env
+    volumes:
+      - $ENV_DIR/frontend.env:/app/.env:ro
     ports:
       - "3000:3000"
     restart: unless-stopped

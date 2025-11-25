@@ -104,10 +104,9 @@ Next, install the frontend dependencies:
 yarn install
 ```
 
-After installing dependencies, copy the `.env.example` file in `apps/web` into `.env` and set the required values:
+After installing dependencies, copy the `.env.example` file into `.env` and set the required values:
 
 ```bash
-cd apps/web/
 cp .env.example .env
 ```
 

@@ -114,6 +114,13 @@ jobs:
           port: ${{ secrets.DEV_EC2_PORT || 22 }}
           envs: DEV_SUPABASE_URL,DEV_SUPABASE_JWT_SECRET,DEV_ENABLE_AUTHENTICATION,DEV_POSTGRES_DB,DEV_POSTGRES_USER,DEV_POSTGRES_PASSWORD,DEV_HUGGINGFACE_TOKEN,DEV_AWS_ACCESS_KEY_ID,DEV_AWS_SECRET_ACCESS_KEY,DEV_AWS_REGION_NAME,DEV_EMBEDDINGS_API_KEY,DEV_OPENAI_API_KEY,DEV_TAVILY_API_KEY,DEV_LANGCHAIN_API_KEY,DEV_LANGCHAIN_PROJECT,DEV_PINECONE_API_KEY,DEV_GOOGLE_API_KEY,DEV_NEXT_PUBLIC_SUPABASE_URL,DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY,DEV_NEXT_PUBLIC_SUPABASE_URL_DOCUMENTS,DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY_DOCUMENTS,DEV_NEXT_PUBLIC_GOOGLE_CLIENT_ID,DEV_LOCAL_DEVELOPMENT
           script: |
+            # Ensure Docker Compose V2 is available
+            if ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose V2..."
+              sudo apt-get update
+              sudo apt-get install -y docker-compose-plugin
+            fi
+            
             # Create deployment directory and clean up any conflicts
             mkdir -p /home/${{ secrets.DEV_EC2_USER }}/pakton-dev
             cd /home/${{ secrets.DEV_EC2_USER }}/pakton-dev

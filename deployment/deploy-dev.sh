@@ -36,6 +36,15 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Check Docker Compose version and use V2 if available
+if docker compose version &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+    log_info "Using Docker Compose V2"
+else
+    COMPOSE_CMD="docker-compose"
+    log_warn "Using Docker Compose V1 (consider upgrading to V2)"
+fi
+
 # Create necessary directories
 log_info "Creating necessary directories..."
 mkdir -p "$ENV_DIR"
@@ -45,7 +54,7 @@ mkdir -p "$DEPLOY_DIR/data/postgres"
 # Stop existing containers
 log_info "Stopping existing containers..."
 cd "$DEPLOY_DIR"
-docker-compose -f docker-compose.dev.yml down --remove-orphans || true
+$COMPOSE_CMD -f docker-compose.dev.yml down --remove-orphans || true
 
 # Clean up Docker resources to free space
 log_info "Cleaning up Docker resources..."
@@ -177,7 +186,7 @@ networks:
     driver: bridge
 EOF
 
-docker-compose -f docker-compose.dev.yml up -d
+$COMPOSE_CMD -f docker-compose.dev.yml up -d
 
 # Wait for API to be ready
 log_info "Waiting for API to be ready..."
@@ -195,7 +204,7 @@ done
 
 if [ $attempt -eq $max_attempts ]; then
     log_error "API failed to start"
-    docker-compose -f docker-compose.dev.yml logs multiagentframework_service
+    $COMPOSE_CMD -f docker-compose.dev.yml logs multiagentframework_service
     exit 1
 fi
 
@@ -215,7 +224,7 @@ done
 
 if [ $attempt -eq $max_attempts ]; then
     log_error "Frontend failed to start"
-    docker-compose -f docker-compose.dev.yml logs web-app
+    $COMPOSE_CMD -f docker-compose.dev.yml logs web-app
     exit 1
 fi
 

@@ -24,7 +24,8 @@ def load_env_files(override=True):
         Path(__file__).parent.parent.parent / '.env',   
         Path(__file__).parent.parent / '.env',             
         Path(__file__).parent / '.env',                
-        Path.cwd() / '.env',                           
+        Path.cwd() / '.env',       
+        Path.cwd() / 'interrogator.env',                     
     ]
     
     # Track if any file was found

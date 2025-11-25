@@ -113,9 +113,6 @@ services:
       - postgres
     env_file:
       - $ENV_DIR/api.env
-      - $ENV_DIR/archivist.env
-      - $ENV_DIR/researcher.env
-      - $ENV_DIR/interrogator.env
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
@@ -126,7 +123,9 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
-      - $ENV_DIR/api.env:/app/.env:ro
+      - $ENV_DIR/archivist.env:/app/API/archivist.env:ro
+      - $ENV_DIR/researcher.env:/app/API/researcher.env:ro
+      - $ENV_DIR/interrogator.env:/app/API/interrogator.env:ro
     networks:
       - pakton-dev-network
 
@@ -149,9 +148,6 @@ services:
     ]
     env_file:
       - $ENV_DIR/api.env
-      - $ENV_DIR/archivist.env
-      - $ENV_DIR/researcher.env
-      - $ENV_DIR/interrogator.env
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
@@ -160,7 +156,9 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
-      - $ENV_DIR/api.env:/app/.env:ro
+      - $ENV_DIR/archivist.env:/app/API/archivist.env:ro
+      - $ENV_DIR/researcher.env:/app/API/researcher.env:ro
+      - $ENV_DIR/interrogator.env:/app/API/interrogator.env:ro
     networks:
       - pakton-dev-network
 

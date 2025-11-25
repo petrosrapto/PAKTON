@@ -1,116 +1,83 @@
 # PAKTON Deployment
 
-This directory contains all deployment configurations and scripts for PAKTON's CI/CD pipelines.
+This directory contains deployment configurations and scripts for PAKTON's CI/CD pipelines.
 
 ## 📁 Directory Structure
 
 ```
 deployment/
-├── README.md                    # This file
-├── DEV_SETUP.md                # Detailed dev environment setup guide
+├── README.md                    # This file - deployment overview
 ├── GITHUB_SECRETS.md           # GitHub Secrets reference
 ├── deploy-dev.sh               # Dev deployment script (runs on EC2)
 ├── nginx/
-│   └── dev.conf               # Nginx configuration for dev environment
+│   ├── SETUP_GUIDE.md         # Complete nginx, SSL, and DNS setup
+│   ├── dev.pakton.site        # Dev nginx config
+│   ├── pakton.site            # Production nginx config
+│   └── nginx.conf             # Main nginx configuration
 ├── scripts/
-│   ├── setup-ec2.sh           # EC2 initial setup script
-│   └── create-env-files.sh    # Environment file creation script
+│   └── create-env-files.sh    # Environment file creation from secrets
 └── env/                        # Environment files (git-ignored)
-    ├── api.env
-    ├── archivist.env
-    ├── researcher.env
-    ├── interrogator.env
-    └── frontend.env
+    └── .gitignore
 ```
 
 ## 🚀 Quick Start
 
-### For First-Time Setup
+### Prerequisites
 
-1. **Launch EC2 Instance**
-   - Instance type: t3.large or larger
-   - OS: Ubuntu 22.04 LTS
-   - Storage: 30GB+ SSD
-   - Open ports: 22, 80, 443
+1. **EC2 Instance** running Ubuntu 22.04 LTS (t3.large or larger)
+2. **Docker and Docker Compose** installed on EC2
+3. **GitHub Secrets** configured (see [GITHUB_SECRETS.md](GITHUB_SECRETS.md))
+4. **Nginx, DNS, and SSL** set up (see [nginx/SETUP_GUIDE.md](nginx/SETUP_GUIDE.md))
 
-2. **Run Setup Script on EC2**
-   ```bash
-   # SSH into EC2
-   ssh -i your-key.pem ubuntu@your-ec2-ip
-   
-   # Download and run setup script
-   curl -o setup-ec2.sh https://raw.githubusercontent.com/petrosrapto/PAKTON/develop/deployment/scripts/setup-ec2.sh
-   chmod +x setup-ec2.sh
-   ./setup-ec2.sh petrosrapto PAKTON
-   ```
+### Deploy
 
-3. **Configure GitHub Secrets**
-   - Copy SSH private key shown at end of setup
-   - Add all required secrets (see [GITHUB_SECRETS.md](GITHUB_SECRETS.md))
+Push to the `develop` or `feature/PAKTON_backend` branch:
 
-4. **Push to Develop Branch**
-   ```bash
-   git push origin develop
-   ```
-   
-   GitHub Actions will automatically build and deploy!
+```bash
+git push origin develop
+```
 
-### For Subsequent Deployments
+GitHub Actions automatically:
+1. Builds Docker images for API and Frontend
+2. Pushes to GitHub Container Registry
+3. SSHs into EC2 and deploys
+4. Verifies services are healthy
 
-Just push to the `develop` branch - GitHub Actions handles everything automatically.
+**Production**: `https://pakton.site`  
+**Development**: `https://dev.pakton.site`
 
 ## 📚 Documentation
 
-- **[DEV_SETUP.md](DEV_SETUP.md)** - Complete development environment setup guide
-- **[GITHUB_SECRETS.md](GITHUB_SECRETS.md)** - GitHub Secrets quick reference
+- **[GITHUB_SECRETS.md](GITHUB_SECRETS.md)** - Required GitHub Secrets
+- **[nginx/SETUP_GUIDE.md](nginx/SETUP_GUIDE.md)** - Nginx, SSL, and DNS setup
 
-## 🔄 CI/CD Workflows
+## 🔄 CI/CD Workflow
 
-### Development Environment (`develop` branch)
+### Development Environment
 
-**Trigger**: Push to `develop` branch
+**Trigger**: Push to `develop` or `feature/PAKTON_backend` branch
 
 **Workflow**: `.github/workflows/deploy-dev.yml`
 
-**Steps**:
-1. Build Docker images for API and Frontend
-2. Push images to GitHub Container Registry
-3. SSH into dev EC2 instance
-4. Pull latest code and images
-5. Create environment files from GitHub Secrets
-6. Run deployment script
-7. Verify services are healthy
+**Process**:
+1. Build API Docker image (`PAKTON Framework/API/Dockerfile`)
+2. Build Frontend Docker image (`PAKTON Framework/Frontend/v0.2/Dockerfile`)
+3. Push to GitHub Container Registry (`ghcr.io/petrosrapto/pakton/*`)
+4. SSH to EC2 instance
+5. Pull latest images with branch-based tags
+6. Create environment files from GitHub Secrets
+7. Run `deploy-dev.sh` script
+8. Health checks (API: `/health`, Frontend: `/`)
 
-**Deployment URL**: `http://your-dev-ec2-ip`
+**Deployment URL**: `https://dev.pakton.site`
 
-### Production Environment (Future)
+### Production Environment
 
-**Trigger**: Release tags (e.g., `v1.0.0`)
+**Deployment URL**: `https://pakton.site`
 
-**Workflow**: `.github/workflows/deploy-prod.yml` (to be created)
-
-**Build Trigger**: Push to `main` branch (build only, no deploy)
-
-**Deploy Trigger**: Release tag creation
+(Uses same infrastructure, different services on different ports)
 
 ## 🔧 Scripts
-
-### `setup-ec2.sh`
-
-**Purpose**: Initial EC2 instance setup
-
-**Usage**:
-```bash
-bash setup-ec2.sh <github-username> <repo-name>
-```
-
-**What it does**:
-- Installs Docker, Docker Compose, Nginx, Git
-- Clones repository
-- Creates directory structure
-- Generates SSH keys for GitHub Actions
-- Configures Nginx
-- Sets up firewall
 
 ### `create-env-files.sh`
 
@@ -184,26 +151,29 @@ See [GITHUB_SECRETS.md](GITHUB_SECRETS.md) for complete list of required secrets
 
 ### Development Containers
 
-All containers use `pakton-dev-` prefix:
+1. **pakton-dev-api** - FastAPI service (port 5001)
+2. **pakton-dev-worker** - Celery worker
+3. **pakton-dev-frontend** - Next.js app (port 3000)
+4. **pakton-dev-postgres** - PostgreSQL database
+5. **pakton-dev-rabbitmq** - Message broker
+6. **pakton-dev-redis** - Result backend
 
-1. **pakton-dev-nginx** - Nginx reverse proxy (port 80)
-2. **pakton-dev-api** - FastAPI service (internal)
-3. **pakton-dev-worker** - Celery worker
-4. **pakton-dev-frontend** - Next.js app (internal)
-5. **pakton-dev-postgres** - PostgreSQL database (internal)
-6. **pakton-dev-rabbitmq** - Message broker (internal)
-7. **pakton-dev-redis** - Result backend (internal)
+**Note**: Services run on localhost ports, reverse-proxied by nginx to `https://dev.pakton.site`
 
-**Note**: Only Nginx exposes ports externally. All other services communicate via Docker network.
+### Host Nginx
+
+Nginx runs on the host (not containerized) and proxies:
+- `pakton.site` → Production services (ports 8501, 3001, 8502)
+- `dev.pakton.site` → Development frontend (port 3000)
 
 ### Networks
 
-- **pakton-dev-network** - Bridge network connecting all services
+- **pakton-dev-network** - Docker bridge network
 
 ### Volumes
 
 - **postgres_data** - Persistent PostgreSQL data
-- **~/.cache/huggingface** - HuggingFace model cache (mounted)
+- **rabbitmq_data** - Persistent message queue data
 
 ## 🔍 Monitoring & Debugging
 
@@ -243,14 +213,6 @@ docker ps
 docker stats
 ```
 
-### Access RabbitMQ Management
-
-```bash
-# Open in browser
-http://your-ec2-ip:15672
-# Default credentials: guest/guest
-```
-
 ### Database Access
 
 ```bash
@@ -286,18 +248,21 @@ docker system prune -a
 ### Nginx Issues
 
 ```bash
-# Check Nginx status
+# Check status
 sudo systemctl status nginx
 
-# Test configuration
+# Test config
 sudo nginx -t
 
-# View error logs
-sudo tail -f /var/log/nginx/error.log
+# View logs
+sudo tail -f /var/log/nginx/dev.pakton.site.error.log
+sudo tail -f /var/log/nginx/pakton.site.error.log
 
-# Reload Nginx
+# Reload
 sudo systemctl reload nginx
 ```
+
+For complete nginx setup, see [nginx/SETUP_GUIDE.md](nginx/SETUP_GUIDE.md)
 
 ### Database Connection Issues
 
@@ -362,29 +327,16 @@ nano api.env  # Edit as needed
 bash ~/pakton-dev/deployment/deploy-dev.sh
 ```
 
-## 🚀 Production Deployment (Coming Soon)
 
-Production deployment will follow a similar pattern but with:
-
-- Separate EC2 instance
-- Different docker-compose configuration
-- Production-grade security settings
-- SSL/HTTPS enforced
-- Automated backups
-- Monitoring and alerting
-- Deploy triggered by release tags only
-- Build triggered by commits to `main` branch
-
----
 
 ## 📞 Support
 
-For issues or questions:
-- Check [DEV_SETUP.md](DEV_SETUP.md) for detailed setup instructions
-- Review GitHub Actions logs
-- Check deployment logs on EC2
-- Contact: petrosrapto@gmail.com
+For issues:
+1. Check GitHub Actions logs in the Actions tab
+2. SSH to EC2 and check `/home/ubuntu/pakton-dev/logs/deployment.log`
+3. Review [nginx/SETUP_GUIDE.md](nginx/SETUP_GUIDE.md) for infrastructure setup
+4. Check [GITHUB_SECRETS.md](GITHUB_SECRETS.md) for required secrets
 
 ---
 
-**Last Updated**: November 24, 2025
+**Last Updated**: November 25, 2025

@@ -6,7 +6,6 @@ import {
 } from "@opencanvas/shared/models";
 import { CustomModelConfig } from "@opencanvas/shared/types";
 import { Thread } from "@langchain/langgraph-sdk";
-import { createClient } from "../hooks/utils";
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 import { useUserContext } from "./UserContext";
 import { useToast } from "@/hooks/use-toast";
@@ -236,12 +235,6 @@ export function ThreadProvider({ children }: { children: ReactNode }) {
       // Once completed, `createThread` will re-fetch all user
       // threads to update UI.
       void createThread();
-    }
-    const client = createClient();
-    try {
-      await client.threads.delete(id);
-    } catch (e) {
-      console.error(`Failed to delete thread with ID ${id}`, e);
     }
   };
 

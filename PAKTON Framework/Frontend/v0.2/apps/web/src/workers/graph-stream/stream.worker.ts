@@ -1,6 +1,6 @@
 import { StreamConfig } from "./streamWorker.types";
 
-const ARCHIVIST_API_URL = "http://localhost:5001";
+const ARCHIVIST_API_URL = process.env.NEXT_PUBLIC_ARCHIVIST_API_URL ?? "http://localhost:5001";
 const QUERY_SSE_ENDPOINT = "/query/sse";
 
 // Since workers can't directly access the client SDK, you'll need to recreate/import necessary parts

@@ -9,7 +9,6 @@ import {
   useContext,
   useState,
 } from "react";
-import { createClient } from "@/hooks/utils";
 import { getCookie, removeCookie } from "@/lib/cookies";
 import { ASSISTANT_ID_COOKIE } from "@/constants";
 
@@ -320,7 +319,6 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       return;
     }
     setIsLoadingAllAssistants(true);
-    const client = createClient();
     let userAssistants: Assistant[] = [];
 
     const assistantIdCookie = getCookie(ASSISTANT_ID_COOKIE);

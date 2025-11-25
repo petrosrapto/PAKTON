@@ -1,0 +1,124 @@
+# /etc/nginx/sites-available/pakton.site
+
+# HTTP redirect
+server {
+    listen 80;
+    server_name pakton.site www.pakton.site;
+    return 301 https://pakton.site$request_uri;
+}
+
+# HTTPS - www redirect
+server {
+    listen 443 ssl http2;
+    server_name www.pakton.site;
+    
+    ssl_certificate /etc/letsencrypt/live/pakton.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pakton.site/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    
+    return 301 https://pakton.site$request_uri;
+}
+
+# HTTPS - main production
+server {
+    listen 443 ssl http2;
+    server_name pakton.site;
+    
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/pakton.site/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pakton.site/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    # Logging
+    access_log /var/log/nginx/pakton.site.access.log;
+    error_log /var/log/nginx/pakton.site.error.log;
+    
+    # PAKTON API (port 5001)
+    location /api/ {
+        limit_req zone=prod_limit burst=100 nodelay;
+        
+        # Remove /api prefix before forwarding to backend
+        rewrite ^/api/(.*) /$1 break;
+        
+        proxy_pass http://localhost:5001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_read_timeout 600s;
+        proxy_connect_timeout 75s;
+        proxy_send_timeout 600s;
+        
+        # Enable buffering for SSE
+        proxy_buffering off;
+        proxy_cache off;
+    }
+    
+    # Evaluation service
+    location /evaluation/ {
+        limit_req zone=prod_limit burst=200 nodelay;
+        
+        proxy_pass http://localhost:3001/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        proxy_send_timeout 300s;
+    }
+    
+    # Examples service
+    location /examples/ {
+        limit_req zone=prod_limit burst=200 nodelay;
+        
+        proxy_pass http://localhost:8502/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        proxy_send_timeout 300s;
+    }
+    
+    # Main service
+    location / {
+        limit_req zone=prod_limit burst=200 nodelay;
+        
+        proxy_pass http://localhost:8501;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+        proxy_send_timeout 300s;
+    }
+}

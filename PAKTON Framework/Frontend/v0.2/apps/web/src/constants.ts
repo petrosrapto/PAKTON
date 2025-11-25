@@ -1,7 +1,5 @@
-export const LANGGRAPH_API_URL =
-  process.env.LANGGRAPH_API_URL ?? "http://localhost:54367";
 export const ARCHIVIST_API_URL =
-  process.env.ARCHIVIST_API_URL ?? "http://localhost:5001";
+  process.env.NEXT_PUBLIC_ARCHIVIST_API_URL ?? "http://localhost:5001";
 // v2 is tied to the 'open-canvas-prod' deployment.
 export const ASSISTANT_ID_COOKIE = "oc_assistant_id_v2";
 // export const ASSISTANT_ID_COOKIE = "oc_assistant_id";

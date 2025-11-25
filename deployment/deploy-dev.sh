@@ -64,20 +64,12 @@ docker image prune -a -f
 # Copy environment files from secure location
 log_info "Setting up environment variables..."
 
-# API environment variables
-cp "$ENV_DIR/api.env" "$DEPLOY_DIR/PAKTON Framework/API/.env"
-
-# Archivist environment variables
-cp "$ENV_DIR/archivist.env" "$DEPLOY_DIR/PAKTON Framework/Archivist/src/Archivist/.env"
-
-# Researcher environment variables
-cp "$ENV_DIR/researcher.env" "$DEPLOY_DIR/PAKTON Framework/Researcher/src/Researcher/.env"
-
-# Interrogator environment variables
-cp "$ENV_DIR/interrogator.env" "$DEPLOY_DIR/PAKTON Framework/Interrogator/src/Interrogator/.env"
-
 # Frontend environment variables
 cp "$ENV_DIR/frontend.env" "$DEPLOY_DIR/PAKTON Framework/Frontend/v0.2/apps/web/.env"
+
+# For the containerized API, we'll mount .env files directly into the container
+# at the locations where the packages expect them
+log_info "Environment files prepared for container mounting"
 
 # Update docker-compose to use pulled images
 log_info "Starting services..."
@@ -108,7 +100,7 @@ services:
     image: postgres:15-alpine
     container_name: pakton-dev-postgres
     env_file:
-      - "PAKTON Framework/API/.env"
+      - $ENV_DIR/api.env
     volumes:
       - $DEPLOY_DIR/data/postgres:/var/lib/postgresql/data
     restart: always
@@ -122,8 +114,6 @@ services:
       - rabbitmq
       - redis
       - postgres
-    env_file:
-      - "PAKTON Framework/API/.env"
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
@@ -134,6 +124,10 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - $ENV_DIR/api.env:/app/API/.env:ro
+      - $ENV_DIR/archivist.env:/app/packages/Archivist/src/Archivist/.env:ro
+      - $ENV_DIR/researcher.env:/app/packages/Researcher/src/Researcher/.env:ro
+      - $ENV_DIR/interrogator.env:/app/packages/Interrogator/src/Interrogator/.env:ro
     networks:
       - pakton-dev-network
 
@@ -154,8 +148,6 @@ services:
       "--concurrency=4",
       "--loglevel=debug"
     ]
-    env_file:
-      - "PAKTON Framework/API/.env"
     environment:
       CELERY_BROKER_URL: "amqp://rabbitmq:5672"
       CELERY_RESULT_BACKEND: "redis://redis:6379/0"
@@ -164,6 +156,10 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - $ENV_DIR/api.env:/app/API/.env:ro
+      - $ENV_DIR/archivist.env:/app/packages/Archivist/src/Archivist/.env:ro
+      - $ENV_DIR/researcher.env:/app/packages/Researcher/src/Researcher/.env:ro
+      - $ENV_DIR/interrogator.env:/app/packages/Interrogator/src/Interrogator/.env:ro
     networks:
       - pakton-dev-network
 

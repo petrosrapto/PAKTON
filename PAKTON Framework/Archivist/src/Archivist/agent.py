@@ -18,7 +18,7 @@ from Archivist.graph import GraphBuilder
 from Archivist.indexers import VectorDBIndexer, LightRAGIndexer
 from Archivist.tools import create_interrogation_tool
 
-from Archivist.utils import config, logger, ARCHIVIST_SYSTEM_PROMPT
+from Archivist.utils import config, logger, ARCHIVIST_SYSTEM_PROMPT, get_required_env
 from Archivist.models import get_llm
 
 from contextlib import AsyncExitStack
@@ -119,23 +119,10 @@ class Archivist:
         """Setup PostgreSQL checkpointer for persistent memory"""
         try:
             # Get PostgreSQL configuration
-            persistence_config = config.get("persistence", {})
-            postgres_config = persistence_config.get("postgres", {})
-            
-            host = postgres_config.get("host", "localhost")
-            port = postgres_config.get("port", 5432)
-            database = postgres_config.get("database", "archivist_db")
-            user = postgres_config.get("user", "archivist_user")
-            password = postgres_config.get("password", "archivist_password")
-            
-            # Create PostgreSQL connection string
-            conn_string = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-            logger.info(f"Attempting to connect to PostgreSQL: {host}:{port}/{database}")
-            
-            self._conn_string = conn_string
+            self._conn_string = get_required_env("DATABASE_URL")
             
             self.checkpointer = await self.exit_stack.enter_async_context(
-                AsyncPostgresSaver.from_conn_string(conn_string)
+                AsyncPostgresSaver.from_conn_string(self._conn_string)
             )
             
             # Setup database tables (creates them if they don't exist)

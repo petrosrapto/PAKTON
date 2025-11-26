@@ -74,11 +74,3 @@ logging:
   console_output: true # print the loggings into the stdout as well
 
 visualization: False # Enable/Disable graph visualization
-
-persistence:
-  postgres:
-    host: "postgres"
-    port: 5432
-    database: "archivist_db"
-    user: "archivist_user"
-    password: "archivist_password"

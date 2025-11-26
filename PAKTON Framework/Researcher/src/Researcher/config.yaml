@@ -67,10 +67,10 @@ reranking:
   use_reranker: True
   top_k: 64
   similarity_threshold: 0
-  reranker_type: "llm-reranker" # Options: "cross-encoder", "flag-reranker", llm-reranker
-  model:  BAAI/bge-reranker-v2-minicpm-layerwise # cross-encoder/ms-marco-MiniLM-L6-v2 , BAAI/bge-reranker-v2-m3 , BAAI/bge-reranker-v2-minicpm-layerwise
+  reranker_type: "flag-reranker" # Options: "cross-encoder", "flag-reranker", llm-reranker
+  model:  BAAI/bge-reranker-v2-m3 # cross-encoder/ms-marco-MiniLM-L6-v2 , BAAI/bge-reranker-v2-m3 , BAAI/bge-reranker-v2-minicpm-layerwise
   use_fp16: True # Whether to use FP16 for flag-reranker (speeds up computation with slight performance degradation)
-  cutoff_layers: 28 # layers to cut off for flag-reranker, only for minicpm layerwise
+  # cutoff_layers: 28 # layers to cut off for flag-reranker, only for minicpm layerwise
 
 llm_filtering:
   use_llm_filtering: True

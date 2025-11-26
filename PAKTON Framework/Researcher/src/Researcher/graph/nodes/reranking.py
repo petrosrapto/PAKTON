@@ -8,44 +8,50 @@ Author: Raptopoulos Petros [petrosrapto@gmail.com]
 Date: 2025/03/10
 """
 import torch
-from sentence_transformers import CrossEncoder
+
 from Researcher.types import RetrievalState
 from Researcher.utils import logger, config
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-cross_encoder_config = config.get("reranking", {})
-top_k = cross_encoder_config.get("top_k", 5)
-similarity_threshold = cross_encoder_config.get("similarity_threshold", None)
-reranker_type = cross_encoder_config.get("reranker_type", "cross-encoder")
-model = cross_encoder_config.get("model", None)
-use_reranker = cross_encoder_config.get("use_reranker", False)
-use_fp16 = cross_encoder_config.get("use_fp16", False)
-cutoff_layers = cross_encoder_config.get("cutoff_layers", None)
+reranker_config = config.get("reranking", {})
+top_k = reranker_config.get("top_k", 5)
+similarity_threshold = reranker_config.get("similarity_threshold", None)
+reranker_type = reranker_config.get("reranker_type", "cross-encoder")
+model = reranker_config.get("model", None)
+use_reranker = reranker_config.get("use_reranker", False)
+use_fp16 = reranker_config.get("use_fp16", False)
+cutoff_layers = reranker_config.get("cutoff_layers", None)
 
 # Import and initialize appropriate reranker based on configuration
-reranker = None
-if reranker_type == "cross-encoder":
-    reranker = CrossEncoder(model, default_activation_function=torch.nn.Sigmoid())
-    logger.info(f"Initialized CrossEncoder reranker with model {model}")
-elif reranker_type == "flag-reranker":
-    try:
-        from FlagEmbedding import FlagReranker
-        reranker = FlagReranker(model, use_fp16=use_fp16)
-        logger.info(f"Initialized FlagReranker with model {model} (use_fp16={use_fp16})")
-    except ImportError:
-        logger.error("Failed to import FlagReranker. Make sure FlagEmbedding is installed.")
-        raise
-elif reranker_type == "llm-reranker":
-    try:
-        from FlagEmbedding import LayerWiseFlagLLMReranker
-        reranker = LayerWiseFlagLLMReranker(model, use_fp16=use_fp16)
-        logger.info(f"Initialized FlagReranker with model {model} (use_fp16={use_fp16})")
-    except ImportError:
-        logger.error("Failed to import FlagReranker. Make sure FlagEmbedding is installed.")
-        raise
-else:
-    raise ValueError(f"Unknown reranker type: {reranker_type}")
+if use_reranker:
+    reranker = None
+    if reranker_type == "cross-encoder":
+        try:
+            from sentence_transformers import CrossEncoder
+            reranker = CrossEncoder(model, default_activation_function=torch.nn.Sigmoid(), trust_remote_code=True)
+            logger.info(f"Initialized CrossEncoder reranker with model {model}")
+        except ImportError:
+            logger.error("Failed to import CrossEncoder. Make sure sentence-transformers is installed.")
+            raise
+    elif reranker_type == "flag-reranker":
+        try:
+            from FlagEmbedding import FlagReranker
+            reranker = FlagReranker(model, use_fp16=use_fp16, trust_remote_code=True)
+            logger.info(f"Initialized FlagReranker with model {model} (use_fp16={use_fp16})")
+        except ImportError:
+            logger.error("Failed to import FlagReranker. Make sure FlagEmbedding is installed.")
+            raise
+    elif reranker_type == "llm-reranker":
+        try:
+            from FlagEmbedding import LayerWiseFlagLLMReranker
+            reranker = LayerWiseFlagLLMReranker(model, use_fp16=use_fp16, trust_remote_code=True)
+            logger.info(f"Initialized LayerWiseFlagLLMReranker with model {model} (use_fp16={use_fp16})")
+        except ImportError:
+            logger.error("Failed to import LayerWiseFlagLLMReranker. Make sure FlagEmbedding is installed.")
+            raise
+    else:
+        raise ValueError(f"Unknown reranker type: {reranker_type}")
 
 def rerank(state: RetrievalState) -> RetrievalState:
     """

@@ -143,7 +143,7 @@ services:
       "-A", "API.tasks.celery_app",
       "worker",
       "-Q", "multiagentframework_service_queue",
-      "--concurrency=4",
+      "--concurrency=1",
       "--loglevel=debug"
     ]
     env_file:

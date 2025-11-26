@@ -64,7 +64,7 @@ retrievers:
       max_sources: 3              # Maximum number of sources to include
 
 reranking:
-  use_reranker: True
+  use_reranker: False
   top_k: 64
   similarity_threshold: 0
   reranker_type: "flag-reranker" # Options: "cross-encoder", "flag-reranker", llm-reranker
@@ -73,7 +73,7 @@ reranking:
   # cutoff_layers: 28 # layers to cut off for flag-reranker, only for minicpm layerwise
 
 llm_filtering:
-  use_llm_filtering: True
+  use_llm_filtering: False
   model: "command-r" # gpt-4o or command-r
   top_k: 64
 

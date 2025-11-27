@@ -112,25 +112,175 @@ class Config:
 Then update `tasks.py` to use these settings:
 
 ```python
-# Update celery_app configuration
+# Update celery_app configuration with detailed explanations
 celery_app.conf.update(
+    # ============================================================================
+    # TASK TIME LIMITS - Prevents tasks from running forever
+    # ============================================================================
     task_time_limit=Config.CELERY_TASK_TIME_LIMIT,
+    # Hard timeout in seconds (600 = 10 minutes). After this time, the worker
+    # process executing the task is KILLED (SIGKILL). The task cannot catch this.
+    # WHY: ML models can hang indefinitely waiting for API responses, deadlocked
+    # threads, or infinite loops. Without this, a single stuck task blocks a
+    # worker forever, reducing capacity and eventually exhausting all workers.
+    # MODERATION: Set based on your longest legitimate task. Too low = tasks
+    # killed prematurely. Too high = stuck tasks waste resources for too long.
+    
     task_soft_time_limit=Config.CELERY_TASK_SOFT_TIME_LIMIT,
+    # Soft timeout in seconds (540 = 9 minutes). After this time, a SoftTimeLimitExceeded
+    # exception is raised INSIDE the task, giving it a chance to cleanup gracefully.
+    # WHY: Gives tasks 1 minute to save state, close connections, and cleanup before
+    # the hard kill. Without this, resources leak when tasks are hard-killed.
+    # MODERATION: Should be 30-60 seconds less than task_time_limit to allow cleanup.
+    
+    # ============================================================================
+    # RESULT EXPIRATION - Prevents Redis from filling up with old results
+    # ============================================================================
     result_expires=Config.CELERY_RESULT_EXPIRES,
+    # Time in seconds (3600 = 1 hour) after which task results are deleted from Redis.
+    # WHY: Every task stores its result in Redis. Without expiration, Redis memory
+    # fills up with results from millions of old tasks, eventually causing OOM errors
+    # and making Redis unresponsive. This is CRITICAL for long-running systems.
+    # MODERATION: Set based on how long clients need to retrieve results. Too short =
+    # clients may get "result not found". Too long = Redis fills up. For frontend
+    # apps, 1 hour is usually sufficient since results are fetched immediately.
+    
+    # ============================================================================
+    # WORKER PREFETCH - Controls how many tasks each worker grabs from queue
+    # ============================================================================
     worker_prefetch_multiplier=Config.CELERY_WORKER_PREFETCH_MULTIPLIER,
+    # Number of tasks to prefetch per worker (1 = only fetch next task when ready).
+    # WHY: By default, workers prefetch 4x concurrency tasks (e.g., 16 tasks for
+    # concurrency=4). For ML workloads with large memory footprints, this causes
+    # memory explosion as multiple heavy models load simultaneously. It also
+    # prevents fair task distribution - one worker hoards tasks while others are idle.
+    # MODERATION: Set to 1 for ML/memory-intensive tasks to ensure one-at-a-time
+    # execution. Can increase to 2-4 for lightweight I/O tasks to reduce latency.
+    
+    # ============================================================================
+    # WORKER RECYCLING - Prevents memory leaks from accumulating
+    # ============================================================================
     worker_max_tasks_per_child=Config.CELERY_WORKER_MAX_TASKS_PER_CHILD,
+    # Number of tasks a worker executes before being replaced with a fresh process (10 tasks).
+    # WHY: Python memory management is imperfect. ML models, even when deleted, may
+    # not release all memory. Event loops, cached embeddings, and Python objects
+    # accumulate over time. Recycling workers is the ONLY way to guarantee complete
+    # memory cleanup. Without this, workers gradually consume more RAM until the
+    # system OOMs.
+    # MODERATION: Lower = more frequent cleanup but more overhead from process
+    # creation. Higher = better performance but memory accumulates. For ML: 10-50
+    # tasks. For lightweight tasks: 100-1000 tasks.
+    
     worker_max_memory_per_child=Config.CELERY_WORKER_MAX_MEMORY_PER_CHILD,
+    # Maximum memory in KB (512000 = 512MB) before worker is recycled.
+    # WHY: Even with max_tasks_per_child, a single task can leak massive amounts of
+    # memory (e.g., loading a 2GB dataset). This provides a safety net to prevent
+    # runaway memory consumption from crashing the entire EC2 instance.
+    # MODERATION: Set to 50-75% of your per-worker memory budget. Too low = workers
+    # restart too frequently, hurting throughput. Too high = OOM kills before recycling.
+    # Calculate: (Total RAM - OS - other services) / concurrency / 2 = safe limit.
+    
+    # ============================================================================
+    # TASK ACKNOWLEDGMENT - Prevents task loss when workers crash
+    # ============================================================================
     task_acks_late=Config.CELERY_TASK_ACKS_LATE,
+    # When True, tasks are acknowledged AFTER completion, not when received.
+    # WHY: Default behavior acknowledges tasks immediately when received. If the
+    # worker crashes during execution, the task is lost forever - no retry, no
+    # error, just silently dropped. With acks_late=True, if a worker dies, the
+    # task is requeued and tried again by another worker.
+    # MODERATION: Enable for critical tasks that must complete. Disable for
+    # fire-and-forget tasks where re-execution would cause duplicates (e.g., sending
+    # emails). Requires tasks to be idempotent (safe to run multiple times).
+    
     task_reject_on_worker_lost=Config.CELERY_TASK_REJECT_ON_WORKER_LOST,
+    # When True, requeue tasks if worker connection is lost.
+    # WHY: Complements acks_late. If a worker loses connection to RabbitMQ (network
+    # issue, worker crash, OOM kill), tasks in progress are requeued instead of lost.
+    # Without this, tasks running during a worker crash are silently dropped.
+    # MODERATION: Enable for important tasks. Can cause duplicate execution if worker
+    # doesn't actually crash but just has network hiccup. Requires task idempotency.
+    
+    # ============================================================================
+    # BROKER CONNECTION MANAGEMENT - Handles RabbitMQ connection issues
+    # ============================================================================
     broker_connection_retry_on_startup=Config.CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP,
+    # Retry connecting to RabbitMQ on worker startup if it's not ready yet.
+    # WHY: In Docker, workers may start before RabbitMQ is fully initialized,
+    # causing immediate crashes. This setting makes workers wait and retry.
+    # MODERATION: Always enable in containerized environments. No downside.
+    
     broker_pool_limit=Config.CELERY_BROKER_POOL_LIMIT,
+    # Maximum number of connections to RabbitMQ per worker (10 connections).
+    # WHY: Each worker can open multiple connections to RabbitMQ. Without limits,
+    # workers can exhaust file descriptors or RabbitMQ's connection limit (default
+    # ~1000). This causes "too many open files" errors and RabbitMQ crashes.
+    # MODERATION: Set to concurrency + 5. Too low = workers wait for connections,
+    # reducing throughput. Too high = file descriptor exhaustion. Monitor with
+    # `lsof | wc -l` and `rabbitmqctl list_connections`.
+    
+    # ============================================================================
+    # SERIALIZATION - Controls how task data is encoded/decoded
+    # ============================================================================
     task_serializer=Config.CELERY_TASK_SERIALIZER,
+    # Format for serializing task arguments ('json').
+    # WHY: Default 'pickle' is Python-specific and has security vulnerabilities
+    # (arbitrary code execution). JSON is safe, language-agnostic, and debuggable.
+    # MODERATION: Always use 'json' unless you need to pass complex Python objects
+    # (classes, functions) between tasks. If you need pickle, validate all inputs.
+    
     result_serializer=Config.CELERY_RESULT_SERIALIZER,
+    # Format for serializing task results ('json').
+    # WHY: Same reasons as task_serializer. Results stored in Redis should be
+    # inspectable and safe.
+    # MODERATION: Use 'json'. Switch to 'pickle' only if returning complex objects.
+    
     accept_content=Config.CELERY_ACCEPT_CONTENT,
+    # Whitelist of allowed content types (['json']).
+    # WHY: Security measure. Workers reject tasks serialized with formats not in
+    # this list, preventing attackers from injecting malicious pickled payloads.
+    # MODERATION: Keep restrictive. Only add 'pickle' if absolutely necessary and
+    # you trust all task producers.
+    
+    # ============================================================================
+    # TIMEZONE SETTINGS - Ensures consistent time handling
+    # ============================================================================
     timezone=Config.CELERY_TIMEZONE,
+    # Timezone for task scheduling and ETA ('UTC').
+    # WHY: Prevents confusion when workers run in different timezones. All Celery
+    # timestamps are stored in this timezone.
+    # MODERATION: Always use 'UTC' for consistency. Convert to local time in
+    # application layer if needed for display.
+    
     enable_utc=Config.CELERY_ENABLE_UTC,
+    # Use UTC for all internal timestamps.
+    # WHY: Ensures consistency across distributed workers in different geographic
+    # locations. Prevents daylight saving time bugs.
+    # MODERATION: Always set to True. No reason to disable.
 )
 ```
+
+### 📖 Configuration Field Reference
+
+Below is a summary of each setting with moderation guidelines:
+
+| Setting | Default | Recommended | Why Moderate |
+|---------|---------|-------------|--------------|
+| `task_time_limit` | None (∞) | 600s (10m) | Too low: kills valid tasks. Too high: wastes resources on hung tasks. |
+| `task_soft_time_limit` | None | 540s (9m) | Should be 30-60s less than hard limit for cleanup time. |
+| `result_expires` | 86400s (1d) | 3600s (1h) | Too short: clients can't retrieve results. Too long: Redis fills up. |
+| `worker_prefetch_multiplier` | 4 | 1 (ML), 2-4 (I/O) | Higher = memory explosion for ML. Lower = better distribution. |
+| `worker_max_tasks_per_child` | None (∞) | 10-50 (ML), 100-1000 (I/O) | Lower = more overhead. Higher = memory leaks accumulate. |
+| `worker_max_memory_per_child` | None | 512MB (t3.medium), adjust for instance | Must be < total RAM / concurrency. |
+| `task_acks_late` | False | True (critical tasks) | Prevents task loss but requires idempotency. |
+| `task_reject_on_worker_lost` | False | True | Requeues on crash but can cause duplicates. |
+| `broker_connection_retry_on_startup` | False | True (Docker) | No downside. Always enable in containers. |
+| `broker_pool_limit` | None (∞) | concurrency + 5 | Too low: connection starvation. Too high: file descriptor exhaustion. |
+| `task_serializer` | pickle | json | JSON is safer but can't handle complex Python objects. |
+| `result_serializer` | pickle | json | Same as task_serializer. |
+| `accept_content` | ['pickle', 'json'] | ['json'] | Whitelist only what you need for security. |
+| `timezone` | System local | UTC | Always UTC for distributed systems. |
+| `enable_utc` | False | True | Always enable for consistency. |
 
 ### Step 2: Fix `tasks.py` - Critical Memory Issues
 

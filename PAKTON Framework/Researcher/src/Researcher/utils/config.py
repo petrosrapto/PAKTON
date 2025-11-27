@@ -23,29 +23,43 @@ class Config:
 
     def _load_config(self):
         """Load configuration from config.yaml, handling different execution environments."""
+        # Define config file paths in order of precedence
+        config_paths = [
+            Path.cwd() / "config.researcher.yaml",           # CWD alternative naming
+            Path(__file__).parent.parent / "config.yaml",      # Researcher/src/Researcher/config.yaml
+            Path("/app/Researcher/src/Researcher/config.yaml"),  # Docker mount location
+            Path("/app/API/config.researcher.yaml"),         # API directory with specific name
+        ]
+        
+        # Try pkg_resources first (for installed packages)
         try:
-
-            try:
-                config_path = pkg_resources.resource_filename("Researcher", "config.yaml")
-                if not os.path.exists(config_path):
-                    raise FileNotFoundError
-            except Exception:
-                config_path = None  # If not found in package, try another method
-            
-            if config_path is None:
-                project_root = Path(__file__).resolve().parents[3]  # Adjust based on depth
-                config_path = project_root / "config.yaml"
-                
-                if not config_path.exists():
-                    raise FileNotFoundError(f"[ERROR] config.yaml not found at: {config_path}")
-
+            pkg_config_path = pkg_resources.resource_filename("Researcher", "config.yaml")
+            if os.path.exists(pkg_config_path):
+                config_paths.insert(0, Path(pkg_config_path))
+        except Exception:
+            pass
+        
+        # Try each path until we find one that exists
+        config_path = None
+        for path in config_paths:
+            if path.exists():
+                config_path = path
+                break
+        
+        if config_path is None:
+            print("[ERROR] config.yaml not found in any of the following locations:")
+            for path in config_paths:
+                print(f"  - {path}")
+            print("Please ensure config.yaml exists in one of these locations.")
+            self.config = {}
+            return
+        
+        try:
             with open(config_path, "r") as file:
                 self.config = yaml.safe_load(file)
-
             print(f"[INFO] Successfully loaded config from {config_path}")
-
         except Exception as e:
-            print(f"[ERROR] Failed to load config: {e}")
+            print(f"[ERROR] Failed to load config from {config_path}: {e}")
             self.config = {}
 
     def get(self, key, default=None):

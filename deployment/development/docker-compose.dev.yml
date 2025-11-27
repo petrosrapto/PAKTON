@@ -50,9 +50,9 @@ services:
       - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
       - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
       - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro
-      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/Archivist/src/Archivist/config.yaml:ro
-      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/Interrogator/src/Interrogator/config.yaml:ro
-      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/Researcher/src/Researcher/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/API/config.archivist.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/API/config.interrogator.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/API/config.researcher.yaml:ro
     networks:
       - pakton-dev-network
 
@@ -86,9 +86,9 @@ services:
       - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
       - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
       - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro
-      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/Archivist/src/Archivist/config.yaml:ro
-      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/Interrogator/src/Interrogator/config.yaml:ro
-      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/Researcher/src/Researcher/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/API/config.archivist.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/API/config.interrogator.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/API/config.researcher.yaml:ro
     networks:
       - pakton-dev-network
 

@@ -61,7 +61,7 @@ PAKTON Framework/
 ```
 src/Archivist/
 ├── agent.py              # Main Archivist agent
-├── config.yaml           # Configuration settings
+├── config.example.yaml   # Configuration settings
 ├── graph/                # LangGraph workflow definitions
 │   ├── builder.py        # Graph construction
 │   └── nodes/            # Individual processing nodes
@@ -106,7 +106,7 @@ src/Archivist/
 ```
 src/Interrogator/
 ├── agent.py              # Main Interrogator agent
-├── config.yaml           # Configuration settings
+├── config.example.yaml   # Configuration settings
 ├── graph/                # LangGraph workflow for query processing
 ├── models/               # AI model integrations
 ├── types/                # Type definitions and state management
@@ -138,7 +138,7 @@ src/Interrogator/
 ```
 src/Researcher/
 ├── agent.py              # Main Researcher agent
-├── config.yaml           # Configuration settings
+├── config.example.yaml   # Configuration settings
 ├── graph/                # LangGraph workflow for research operations
 ├── models/               # AI model integrations
 ├── retrievers/           # Information retrieval implementations
@@ -229,7 +229,7 @@ src/Researcher/
    cd "PAKTON Framework"
    ```
 
-2. **Set up environment variables**
+2. **Set up environment variables and configuration files**
    ```bash
    # Copy example environment files
    cp Archivist/src/Archivist/.env.example Archivist/src/Archivist/.env
@@ -237,6 +237,13 @@ src/Researcher/
    cp Researcher/src/Researcher/.env.example Researcher/src/Researcher/.env
    
    # Edit each .env file with your API keys and configuration
+
+   # Copy example configuration files
+   cp Archivist/src/Archivist/config.example.yaml Archivist/src/Archivist/config.yaml
+   cp Interrogator/src/Interrogator/config.example.yaml Interrogator/src/Interrogator/config.yaml
+   cp Researcher/src/Researcher/config.example.yaml Researcher/src/Researcher/config.yaml
+   
+   # Edit each config.yaml file with your configuration settings
    ```
 
 3. **Start the API service**

@@ -141,7 +141,7 @@ jobs:
             git pull origin ${{ github.ref_name }}
             
             # Create environment files from secrets
-            bash ./deployment/scripts/create-env-files.sh ./deployment/env
+            bash ./deployment/development/create-env-files.sh ./deployment/env
             
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
@@ -156,7 +156,7 @@ jobs:
             # Run deployment script
             export GITHUB_REPOSITORY="petrosrapto/pakton"
             export BRANCH_NAME="$TAG_NAME"
-            bash ./deployment/deploy-dev.sh
+            bash ./deployment/development/deploy-dev.sh
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.0

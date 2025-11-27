@@ -1,0 +1,108 @@
+version: "3.8"
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: pakton-dev-rabbitmq
+    ports:
+      - "15672:15672"
+    restart: always
+    networks:
+      - pakton-dev-network
+
+  redis:
+    image: redis:latest
+    container_name: pakton-dev-redis
+    restart: always
+    networks:
+      - pakton-dev-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: pakton-dev-postgres
+    env_file:
+      - ${ENV_DIR}/api.env
+    volumes:
+      - ${DEPLOY_DIR}/data/postgres:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - pakton-dev-network
+
+  multiagentframework_service:
+    image: ${REGISTRY}/${REPO_NAME}/pakton-api:${BRANCH_NAME}
+    container_name: pakton-dev-api
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+    env_file:
+      - ${ENV_DIR}/api.env
+    environment:
+      CELERY_BROKER_URL: "amqp://rabbitmq:5672"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      SERVICE_NAME: "multiagentframework_service"
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "5001:5001"
+    restart: always
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
+      - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
+      - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro
+      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/Archivist/src/Archivist/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/Interrogator/src/Interrogator/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/Researcher/src/Researcher/config.yaml:ro
+    networks:
+      - pakton-dev-network
+
+  multiagentframework_worker:
+    image: ${REGISTRY}/${REPO_NAME}/pakton-api:${BRANCH_NAME}
+    container_name: pakton-dev-worker
+    depends_on:
+      - multiagentframework_service
+      - rabbitmq
+      - redis
+      - postgres
+    working_dir: /app
+    command: [
+      "celery",
+      "-A", "API.tasks.celery_app",
+      "worker",
+      "-Q", "multiagentframework_service_queue",
+      "--concurrency=1",
+      "--loglevel=debug"
+    ]
+    env_file:
+      - ${ENV_DIR}/api.env
+    environment:
+      CELERY_BROKER_URL: "amqp://rabbitmq:5672"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+      SERVICE_NAME: "multiagentframework_service"
+      PYTHONUNBUFFERED: "1"
+    restart: always
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
+      - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
+      - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro
+      - ${DEPLOY_DIR}/deployment/development/config.archivist.yaml:/app/Archivist/src/Archivist/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.interrogator.yaml:/app/Interrogator/src/Interrogator/config.yaml:ro
+      - ${DEPLOY_DIR}/deployment/development/config.researcher.yaml:/app/Researcher/src/Researcher/config.yaml:ro
+    networks:
+      - pakton-dev-network
+
+  web-app:
+    image: ${REGISTRY}/${REPO_NAME}/pakton-frontend:${BRANCH_NAME}
+    container_name: pakton-dev-frontend
+    volumes:
+      - ${ENV_DIR}/frontend.env:/app/.env:ro
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - pakton-dev-network
+
+networks:
+  pakton-dev-network:
+    driver: bridge

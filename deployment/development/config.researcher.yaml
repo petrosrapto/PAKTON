@@ -1,0 +1,143 @@
+# Description:
+# Configuration file for the Researcher agent - DEVELOPMENT ENVIRONMENT
+# This is the central place where all
+# different configurations and settings for the Researcher happen. It is important
+# to properly configure this file as it controls indexing backends, parsing strategies,
+# model selection, logging levels, and other critical system behaviors.
+#
+# Author: Raptopoulos Petros [petrosrapto@gmail.com]
+# Date : 2025/03/10
+
+# Reranking happens after retrieving, so we must pick bigger top_k for retrievers
+# top_k of the reranker will determing the final number of documents to be fed to the LLM
+
+retrievers:
+  wikipedia:
+    load_max_docs: 2
+    lang: "en"
+    load_all_available_meta: true
+    doc_content_chars_max: 100000
+
+  web:
+    search_client: "tavily"
+    max_results: 5
+
+  vectordb:
+    top_k: 100
+    similarity_threshold: 0
+    use_vector_store: "chroma"
+    pinecone:
+      INDEX_NAME: "dev"
+      API_HOST: "https://test-hwguc1i.svc.aped-4627-b74a.pinecone.io"
+    chroma:
+      INDEX_NAME: "dev"
+      persist_directory: "/chroma_db"
+      metadata:
+        hnsw:M: 100
+        hnsw:construction_ef: 500
+        hnsw:search_ef: 1000
+    # embedding_model: "text-embedding-ada-002"
+
+  bm25:
+    top_k: 100
+    similarity_threshold: 0.6
+
+  hybrid:
+    top_k: 64
+    bm25_weight: 0.5
+    vector_weight: 0.5
+    
+  lightrag:
+    base_url: "http://localhost:9621"
+    mode: "mix"  # Options: local, global, or mix
+    top_k: 10
+    response_type: "Single Paragraph"  # Options: Single Paragraph, Multiple Paragraphs
+    max_token: 4000
+    only_need_context: true  # Set to true to retrieve just the context documents
+    only_need_prompt: false  # Set to true to retrieve just the prompt
+    parser:  # Configuration for parsing LightRAG responses
+      include_entities: true      # Include Knowledge Graph entities
+      include_relationships: true # Include Knowledge Graph relationships
+      include_sources: true       # Include source documents
+      include_vector_context: true # Include vector context
+      max_entities: 5             # Maximum number of entities to include
+      max_relationships: 5        # Maximum number of relationships to include
+      max_sources: 3              # Maximum number of sources to include
+
+reranking:
+  use_reranker: False
+  top_k: 64
+  similarity_threshold: 0
+  reranker_type: "flag-reranker" # Options: "cross-encoder", "flag-reranker", llm-reranker
+  model:  BAAI/bge-reranker-v2-m3 # cross-encoder/ms-marco-MiniLM-L6-v2 , BAAI/bge-reranker-v2-m3 , BAAI/bge-reranker-v2-minicpm-layerwise
+  use_fp16: True # Whether to use FP16 for flag-reranker (speeds up computation with slight performance degradation)
+  # cutoff_layers: 28 # layers to cut off for flag-reranker, only for minicpm layerwise
+
+llm_filtering:
+  use_llm_filtering: False
+  model: "command-r" # gpt-4o or command-r
+  top_k: 64
+
+# for local deployment using vLLM just pick OPENAI at
+# the API and choose the right model_id
+# you must complete the endpoint_url with the right IP
+# for the vLLM server
+
+models:
+  # Default model configuration (used as fallback)
+  default:
+    API: "OPENAI" # OPENAI or BEDROCK or LOCAL or GOOGLE
+    model_id: "gpt-4o"
+    # "meta.llama3-1-70b-instruct-v1:0"
+    # "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    # "meta-llama/Meta-Llama-3-8B-Instruct"
+    # "meta.llama3-1-8b-instruct-v1:0"
+    # "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    # "anthropic.claude-3-opus-20240229-v1:0"
+    # "mistral.mistral-7b-instruct-v0:2"
+    # "meta.llama3-1-70b-instruct-v1:0"
+    # "anthropic.claude-3-5-sonnet-20241022-v2:0" # Model ID from OPENAI or BEDROCK "gpt-4o" for example
+    # "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+    # "qwen2.5-72b-instruct" 
+    # "deepseek-chat"
+    args:
+      temperature: 0
+      # max_tokens: 8192 # 8192
+      # top_p: 1.0
+    # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+
+  # Query Extractor can use a faster, more efficient model
+  query_extractor:
+    API: "OPENAI"
+    model_id: "gpt-4o"
+    args:
+      temperature: 0
+      # max_tokens: 8192
+    # endpoint_url: "http://52.206.209.94:8000/v1"
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+
+  # Response Generator can use a more powerful model for better answers
+  response_generator:
+    API: "OPENAI"
+    model_id: "gpt-4o"
+    args:
+      temperature: 0
+      # max_tokens: 8192
+    # endpoint_url: "http://52.206.209.94:8000/v1"
+    # endpoint_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1" # base url for qwen
+    # endpoint_url: "https://api.deepseek.com" # set the base url to the deepseek api url
+    
+
+logging:
+  level: "DEBUG"  
+  file: "researcher-dev.log"  
+  format: "[%(asctime)s]  [%(name)s] [%(levelname)s] [%(message)s]"
+  rotation: "50MB"  # Maximum size before rotating logs
+  retention: "10 days"  # Keep logs for this duration
+  console_output: true # print the loggings into the stdout as well
+
+visualization: False # Enable/Disable graph visualization

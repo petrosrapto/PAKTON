@@ -57,3 +57,5 @@ yarn-error.log*
 
 # VSCode
 .vscode/
+
+config.yaml

@@ -59,7 +59,7 @@ The service implements a modern, scalable microservices architecture:
    cd "PAKTON Framework/API"
    ```
 
-2. **Configure environment variables** (see [Configuration](#configuration) section):
+2. **Configure environment variables and configuration files** (see [Configuration](#configuration) section):
    ```bash
    # Copy example environment files
    cp Archivist/src/Archivist/.env.example Archivist/src/Archivist/.env
@@ -67,6 +67,13 @@ The service implements a modern, scalable microservices architecture:
    cp Researcher/src/Researcher/.env.example Researcher/src/Researcher/.env
    
    # Edit each .env file with your API keys and configuration
+
+   # Copy example configuration files
+   cp Archivist/src/Archivist/config.example.yaml Archivist/src/Archivist/config.yaml
+   cp Interrogator/src/Interrogator/config.example.yaml Interrogator/src/Interrogator/config.yaml
+   cp Researcher/src/Researcher/config.example.yaml Researcher/src/Researcher/config.yaml
+   
+   # Edit each config.yaml file with your API keys and configuration
    ```
 
 3. **Start the services**:

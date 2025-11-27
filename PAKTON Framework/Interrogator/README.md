@@ -126,6 +126,11 @@ print("Interrogator installed successfully!")
 
 ### Model Configuration
 
+Create config file:
+```bash
+cp src/Interrogator/config.example.yaml src/Interrogator/config.yaml
+```
+
 Edit `src/Interrogator/config.yaml` to customize model settings:
 
 ```yaml

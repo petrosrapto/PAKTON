@@ -103,6 +103,12 @@ LANGCHAIN_API_KEY=your_langchain_api_key
 
 ### System Configuration
 
+Create a `config.yaml` file in the `src/Researcher/` directory using the provided template:
+
+```bash
+cp src/Researcher/config.example.yaml src/Researcher/config.yaml
+```
+
 The main configuration is handled through `config.yaml`. Key sections include:
 
 #### Retriever Configuration
@@ -226,7 +232,7 @@ Researcher/
 ├── src/Researcher/             # Main source code
 │   ├── __init__.py             # Package initialization
 │   ├── agent.py                # Main Researcher agent class
-│   ├── config.yaml             # Configuration settings
+│   ├── config.example.yaml             # Configuration settings
 │   ├── .env.example            # Environment template
 │   ├── graph/                  # StateGraph implementation
 │   │   ├── builder.py          # Graph construction

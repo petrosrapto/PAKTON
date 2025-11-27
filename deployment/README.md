@@ -8,14 +8,19 @@ This directory contains deployment configurations and scripts for PAKTON's CI/CD
 deployment/
 ├── README.md                    # This file - deployment overview
 ├── GITHUB_SECRETS.md           # GitHub Secrets reference
-├── deploy-dev.sh               # Dev deployment script (runs on EC2)
+├── development/                # Development environment configs
+│   ├── config.archivist.yaml  # Archivist agent config
+│   ├── config.interrogator.yaml # Interrogator agent config
+│   ├── config.researcher.yaml # Researcher agent config
+│   ├── create-env-files.sh    # Environment file creation from secrets
+│   ├── deploy-dev.sh          # Dev deployment script (runs on EC2)
+│   └── docker-compose.dev.yml # Dev Docker Compose configuration
+├── production/                 # Production environment configs (TBD)
 ├── nginx/
 │   ├── SETUP_GUIDE.md         # Complete nginx, SSL, and DNS setup
 │   ├── dev.pakton.site        # Dev nginx config
 │   ├── pakton.site            # Production nginx config
 │   └── nginx.conf             # Main nginx configuration
-├── scripts/
-│   └── create-env-files.sh    # Environment file creation from secrets
 └── env/                        # Environment files (git-ignored)
     └── .gitignore
 ```
@@ -79,13 +84,13 @@ GitHub Actions automatically:
 
 ## 🔧 Scripts
 
-### `create-env-files.sh`
+### `development/create-env-files.sh`
 
 **Purpose**: Create environment files from GitHub Secrets
 
 **Usage**:
 ```bash
-bash create-env-files.sh <env-directory>
+bash deployment/development/create-env-files.sh <env-directory>
 ```
 
 **What it does**:
@@ -95,18 +100,18 @@ bash create-env-files.sh <env-directory>
 
 **Note**: This script runs automatically during GitHub Actions deployment.
 
-### `deploy-dev.sh`
+### `development/deploy-dev.sh`
 
 **Purpose**: Deploy PAKTON services on EC2
 
 **Usage**:
 ```bash
-bash deploy-dev.sh
+bash deployment/development/deploy-dev.sh
 ```
 
 **What it does**:
 - Stops existing containers
-- Creates dev-specific docker-compose files
+- Uses `docker-compose.dev.yml` from development/ directory
 - Copies environment files to appropriate locations
 - Starts all services (API, Frontend, RabbitMQ, Redis, PostgreSQL)
 - Waits for services to be healthy
@@ -300,7 +305,7 @@ docker exec pakton-dev-api psql -h postgres -U pakton_user -d pakton_dev
 git pull origin develop
 
 # Rebuild containers
-docker-compose -f docker-compose.dev.yml up -d --build
+docker-compose -f deployment/development/docker-compose.dev.yml up -d --build
 ```
 
 ### Update Nginx Configuration
@@ -316,6 +321,19 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+### Update Agent Configurations
+
+Agent configurations (Archivist, Interrogator, Researcher) are stored in `deployment/development/`:
+```bash
+# Edit configs
+nano deployment/development/config.archivist.yaml
+nano deployment/development/config.interrogator.yaml
+nano deployment/development/config.researcher.yaml
+
+# Redeploy
+bash deployment/development/deploy-dev.sh
+```
+
 ### Update Environment Variables
 
 Option 1: Update GitHub Secrets and redeploy
@@ -324,7 +342,7 @@ Option 2: Update files manually on EC2:
 ```bash
 cd ~/pakton-dev/deployment/env
 nano api.env  # Edit as needed
-bash ~/pakton-dev/deployment/deploy-dev.sh
+bash ~/pakton-dev/deployment/development/deploy-dev.sh
 ```
 
 

@@ -1,0 +1,77 @@
+# Description:
+# Configuration file for the Archivist agent - DEVELOPMENT ENVIRONMENT
+# This is the central place where all
+# different configurations and settings for the Archivist happen. It is important
+# to properly configure this file as it controls indexing backends, parsing strategies,
+# model selection, logging levels, and other critical system behaviors.
+#
+# Author: Raptopoulos Petros [petrosrapto@gmail.com]
+# Date : 2025/11/27
+
+# configuration for different indexers
+indexers:
+
+  # configuration for vector database indexers
+  vectordb:
+    # indicate which vector store to use from the following
+    use_vector_store: "chroma" 
+
+    pinecone:
+      INDEX_NAME: "dev"
+      API_HOST: "https://test-hwguc1i.svc.aped-4627-b74a.pinecone.io"
+
+    chroma:
+      INDEX_NAME: "dev"
+      # in which directory to store the chroma vector db
+      persist_directory: "/chroma_db" 
+      metadata:
+        hnsw:M: 100
+        hnsw:construction_ef: 500
+        hnsw:search_ef: 1000
+    # embedding_model: "text-embedding-ada-002"
+    
+  lightrag:
+    base_url: "http://localhost:9621"
+    clear_existing: true
+    max_polling_time: 300
+
+parser:
+  # Indicate which type of the parser will be used, naive or structural
+  type: "naive" 
+
+  # Configuration for the naive parser
+  naive:
+    chunk_size: 1000
+    chunk_overlap: 0
+
+# for local deployment using vLLM just pick OPENAI at
+# the API and choose the right model_id
+# you must complete the endpoint_url with the right IP
+# for the vLLM server
+
+models:
+  API: "OPENAI" # OPENAI or BEDROCK 
+  model_id: "gpt-4o"
+  # "meta-llama/Llama-3.1-70B-Instruct"
+  # "meta-llama/Meta-Llama-3.1-8B-Instruct"
+  # "meta.llama3-1-8b-instruct-v1:0"
+  # "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  # "anthropic.claude-3-opus-20240229-v1:0"
+  # "mistral.mistral-7b-instruct-v0:2"
+  # "meta.llama3-1-70b-instruct-v1:0"
+  # "anthropic.claude-3-5-sonnet-20241022-v2:0" # Model ID from OPENAI or BEDROCK "gpt-4o" for example
+  args:
+    temperature: 0
+    # max_tokens: 8192
+    # top_p: 1.0
+  # endpoint_url: "http://52.206.209.94:8000/v1" # used mainly for the vLLM server
+
+logging:
+  level: "DEBUG"  
+  file: "archivist-dev.log"  
+  format: "[%(asctime)s]  [%(name)s] [%(levelname)s] [%(message)s]"
+  rotation: "50MB"  # Maximum size before rotating logs
+  retention: "10 days"  # Keep logs for this duration
+  console_output: true # print the loggings into the stdout as well
+
+visualization: False # Enable/Disable graph visualization

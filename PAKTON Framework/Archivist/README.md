@@ -153,6 +153,12 @@ TAVILY_API_KEY=your_tavily_api_key
 
 ### Configuration File (config.yaml)
 
+Create a `config.yaml` file based on the provided template:
+
+```bash
+cp src/Archivist/config.example.yaml src/Archivist/config.yaml
+```
+
 The `config.yaml` file provides fine-grained control over Archivist behavior:
 
 ```yaml

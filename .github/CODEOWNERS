@@ -1,0 +1,17 @@
+# CODEOWNERS file
+# These owners will be the default owners for everything in the repo
+# and will be requested for review when someone opens a pull request.
+
+# Workflow files - require your approval
+/.github/workflows/ @petrosrapto
+
+# Deployment scripts - require your approval
+/deployment/ @petrosrapto
+
+# Docker configurations
+Dockerfile @petrosrapto
+docker-compose*.yml @petrosrapto
+
+# Root configuration files
+/package.json @petrosrapto
+/requirements.txt @petrosrapto

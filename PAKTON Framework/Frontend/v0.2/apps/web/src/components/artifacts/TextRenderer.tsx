@@ -120,6 +120,10 @@ export function TextRendererComponent(props: TextRendererProps) {
     }
   }, [props.isInputVisible]);
 
+  // Ref to track ongoing markdown parsing to prevent race conditions
+  const parsingRef = useRef(false);
+  const pendingContentRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!artifact) {
       return;
@@ -132,27 +136,55 @@ export function TextRendererComponent(props: TextRendererProps) {
       return;
     }
 
-    try {
-      const currentIndex = artifact.currentIndex;
-      const currentContent = artifact.contents.find(
-        (c) => c.index === currentIndex && c.type === "text"
-      ) as ArtifactMarkdownV3 | undefined;
-      if (!currentContent) return;
+    const currentIndex = artifact.currentIndex;
+    const currentContent = artifact.contents.find(
+      (c) => c.index === currentIndex && c.type === "text"
+    ) as ArtifactMarkdownV3 | undefined;
+    if (!currentContent) return;
 
-      // Blocks are not found in the artifact, so once streaming is done we should update the artifact state with the blocks
+    const markdownContent = currentContent.fullMarkdown;
+    
+    // During streaming, update pending content and schedule processing
+    if (isStreaming) {
+      pendingContentRef.current = markdownContent;
+      
+      // If not currently parsing, start processing
+      if (!parsingRef.current) {
+        const processContent = async () => {
+          while (pendingContentRef.current !== null) {
+            const contentToProcess = pendingContentRef.current;
+            pendingContentRef.current = null;
+            parsingRef.current = true;
+            
+            try {
+              const markdownAsBlocks = await editor.tryParseMarkdownToBlocks(contentToProcess);
+              editor.replaceBlocks(editor.document, markdownAsBlocks);
+            } catch (error) {
+              console.error('Error parsing markdown during streaming:', error);
+            }
+            
+            // Small delay to allow batching of rapid updates
+            await new Promise(resolve => setTimeout(resolve, 50));
+          }
+          parsingRef.current = false;
+        };
+        processContent();
+      }
+    } else {
+      // Not streaming - final update, wait for completion
       (async () => {
-        const markdownAsBlocks = await editor.tryParseMarkdownToBlocks(
-          currentContent.fullMarkdown
-        );
-        editor.replaceBlocks(editor.document, markdownAsBlocks);
-        setUpdateRenderedArtifactRequired(false);
-        setManuallyUpdatingArtifact(false);
+        parsingRef.current = true;
+        try {
+          const markdownAsBlocks = await editor.tryParseMarkdownToBlocks(markdownContent);
+          editor.replaceBlocks(editor.document, markdownAsBlocks);
+        } finally {
+          parsingRef.current = false;
+          setUpdateRenderedArtifactRequired(false);
+          setManuallyUpdatingArtifact(false);
+        }
       })();
-    } finally {
-      setManuallyUpdatingArtifact(false);
-      setUpdateRenderedArtifactRequired(false);
     }
-  }, [artifact, updateRenderedArtifactRequired]);
+  }, [artifact, updateRenderedArtifactRequired, isStreaming]);
 
   useEffect(() => {
     if (isRawView) {

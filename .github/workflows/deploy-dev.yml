@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develop
-      - feature/PAKTON_backend  # Testing branch
+      - feature/PAKTON_backend  # Testing branch - remove after testing
 
 env:
   REGISTRY: ghcr.io
@@ -13,6 +13,9 @@ jobs:
   build-and-deploy:
     name: Build and Deploy to Dev EC2
     runs-on: ubuntu-latest
+    environment: 
+      name: development
+      url: https://dev.pakton.site
     permissions:
       contents: read
       packages: write

@@ -32,6 +32,17 @@ const config: Config = {
   					'background-position': 'right center'
   				}
   			},
+  			'shimmer': {
+  				'0%': {
+  					'background-position': '0% 50%'
+  				},
+  				'50%': {
+  					'background-position': '100% 50%'
+  				},
+  				'100%': {
+  					'background-position': '0% 50%'
+  				}
+  			},
   			'accordion-down': {
   				from: {
   					height: '0'
@@ -52,6 +63,7 @@ const config: Config = {
   		animation: {
   			'gradient-xy-enhanced': 'gradient-xy-enhanced 15s ease infinite',
   			'gradient-x': 'gradient-x 3s ease-in-out infinite',
+  			'shimmer': 'shimmer 2s ease-in-out infinite',
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},

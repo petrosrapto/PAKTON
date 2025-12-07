@@ -8,7 +8,7 @@
 
 **Making Contract Review Accessible to Everyone Through AI**
 
-[![Paper](https://img.shields.io/badge/arXiv-2506.00608-b31b1b.svg)](https://arxiv.org/abs/2506.00608) [![Demo](https://img.shields.io/badge/Demo-pakton.site-blue.svg)](https://pakton.site) [![License](https://img.shields.io/badge/License-Apache_v2.0-green.svg)](./LICENSE)
+[![Paper](https://img.shields.io/badge/arXiv-2506.00608-b31b1b.svg)](https://arxiv.org/abs/2506.00608) [![Demo](https://img.shields.io/badge/Demo-pakton.site-blue.svg)](https://pakton.site) [![License](https://img.shields.io/badge/License-Apache_v2.0-green.svg)](./LICENSE) [![Discord](https://img.shields.io/discord/1446542352490430597?color=5865F2&logo=discord&logoColor=white&label=Discord)](https://discord.gg/SSgGGGJy2D)
 
 [![Venue](https://img.shields.io/badge/Venue-Accepted%20and%20Presented%20Orally%20at%20the%20Main%20Conference%20of%20EMNLP%202025-red.svg)](https://aclanthology.org/2025.emnlp-main.403/)
 
@@ -26,41 +26,29 @@ Reviewing contracts is often slow, complex, and requires expert legal knowledge.
 
 <div align="center">
 
-<img src="./PAKTON Framework/Frontend/v0.2/static/PAKTON_overview.png" alt="PAKTON Overview" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border: 1px solid rgba(0, 0, 0, 0.08); margin: 20px 0; max-width: 50%; height: auto;">
+<img src="./PAKTON Framework/Frontend/v0.2/static/PAKTON_overview.png" alt="PAKTON Overview" width="600" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border: 1px solid rgba(0, 0, 0, 0.08); margin: 20px 0;">
 
 *PAKTON user flow: legal query submission followed by comprehensive report generation*
 
 </div>
 
-## 🚀 Live Demo
+**PAKTON** was published at the [**Main Conference of EMNLP 2025**](https://aclanthology.org/2025.emnlp-main.403/) and presented orally by [**Petros Raptopoulos**](https://petrosraptopoulos.com/).
 
-**Current Deployment**: [pakton.site](https://pakton.site)
-
-> **⚠️ Important Note**: The current deployed version is customized for the EU AI Act document and was created during a hackathon. It does not include all PAKTON capabilities. Questions are forwarded directly to the "Interrogator" agent (not the Archivist), so please provide well-defined questions without chitchat.
-
-<div align="center">
-
-<img src="./PAKTON Framework/Frontend/v0.2/static/PAKTON_UI_0.png" alt="PAKTON UI - Current Interface" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border: 1px solid rgba(0, 0, 0, 0.08); margin: 10px 0; max-width: 100%; height: auto;">
-
-*Current PAKTON frontend with limited capabilities*
-
-</div>
-
-## ⏭️ Coming Soon: Full PAKTON Frontend
-
-The complete PAKTON experience with full multi-agent capabilities is coming soon:
+## 🚀 Live Deployed Version at [pakton.site](https://pakton.site)
 
 <div align="center">
 
 <img src="./PAKTON Framework/Frontend/v0.2/static/PAKTON_UI_1.png" alt="PAKTON UI - Main Interface" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border: 1px solid rgba(0, 0, 0, 0.08); margin: 10px 0; max-width: 100%; height: auto;">
 
-*Main PAKTON interface - Coming Soon*
+*PAKTON Login/Signup Page*
 
 <img src="./PAKTON Framework/Frontend/v0.2/static/PAKTON_UI_2.png" alt="PAKTON UI - Advanced Features" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12); border: 1px solid rgba(0, 0, 0, 0.08); margin: 10px 0; max-width: 100%; height: auto;">
 
-*Document upload and chat interface - Coming Soon*
+*Contract upload and chat interface*
 
 </div>
+
+> **⚠️ Important Note**: The deployed version and the code currently in the repository are missing a few components that will be added shortly. These updates are being organized to ensure a clean and robust push.
 
 ## 🏗️ Architecture
 
@@ -116,9 +104,21 @@ PAKTON/
 ├── README.md                                           # This file
 ├── CONTRIBUTING.md                                     # Contributing Guidelines
 ├── Docs/                                               # Documentation and research papers
+│   ├── ACL_Anthology_version.pdf                       # ACL Anthology published version
+│   ├── EMNLP 2025_Poster.pdf                           # Conference poster
 │   └── Preprint_May_25.pdf                             # Research preprint
+├── deployment/                                         # Deployment configurations
+│   ├── development/                                    # Development environment configs
+│   ├── production/                                     # Production environment configs
+│   └── nginx/                                          # Nginx server configurations
 ├── PAKTON Framework/                                   # Core framework implementation
+│   ├── API/                                            # Backend API service
+│   ├── Archivist/                                      # Archivist agent implementation
+│   ├── Interrogator/                                   # Interrogator agent implementation
+│   ├── Researcher/                                     # Researcher agent (RAG component)
+│   └── Frontend/                                       # Frontend applications
 ├── Experiments and Evaluation/                         # All experimental work and evaluation
+│   ├── Frontend/                                       # Frontend for experiments visualization
 │   ├── Qualitative/                                    # Qualitative evaluation methods
 │   │   ├── Human Evaluation/                           # Human assessment results
 │   │   ├── LLM as a judge - GEVAL/                     # Automated evaluation using GEVAL
@@ -129,11 +129,29 @@ PAKTON/
 └── Machine Learning Experimentation/                   # Additional ML experiments (not mentioned in the paper)
 ```
 
-## 🤝 Contributing
+## 🤝 Contributing & Community
 
-PAKTON is dedicated to making contractual obligations clearer and more accessible to everyone. We welcome your ideas, code, and feedback to help us make PAKTON even better!
+PAKTON is dedicated to making contractual obligations clearer and more accessible to everyone. **We believe in the power of community-driven development** and welcome contributors (ideas, code, feedback).
 
-To get started, please review our [**Contributing Guidelines**](CONTRIBUTING.md).
+### Join Our Community
+
+Join our vibrant Discord community where developers, researchers, and legal tech enthusiasts come together to:
+- Share ideas and get instant feedback
+- Troubleshoot and solve implementation challenges
+- Find collaborators for new features and research
+- Stay ahead with the latest updates and releases
+
+### Contributing to PAKTON
+
+Whether you're fixing bugs, adding features, improving documentation, or sharing use cases, your contribution matters! To get started, please review our [**Contributing Guidelines**](CONTRIBUTING.md).
+
+**Ways to contribute:**
+- Report bugs and issues
+- Suggest new features or improvements
+- Improve documentation
+- Submit pull requests
+- Help with translations and accessibility
+- Share PAKTON with others who might benefit
 
 ## License
 

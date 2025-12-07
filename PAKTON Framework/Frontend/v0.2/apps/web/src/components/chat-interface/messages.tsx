@@ -28,6 +28,7 @@ import { WEB_SEARCH_RESULTS_QUERY_PARAM } from "@/constants";
 import { BookOpen, FileText, Globe } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useUserContext } from "@/contexts/UserContext";
+import { InterrogatingIndicator } from "./interrogating-indicator";
 
 interface AssistantMessageProps {
   runId: string | undefined;
@@ -122,6 +123,9 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
   setFeedbackSubmitted,
 }) => {
   const message = useMessage();
+  const msg = useMessage(getExternalStoreMessage<any>);
+  const externalMessage = Array.isArray(msg) ? msg[0] : msg;
+  
   const { isLast } = message;
   const isThinkingMessage = message.id.startsWith("thinking-");
   const isWebSearchMessage = message.id.startsWith("web-search-results-");
@@ -134,6 +138,11 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
     return <WebSearchMessage message={message} />;
   }
 
+  // Extract interrogation calls, intermediate content, and streaming state from additional_kwargs
+  const interrogationCalls = externalMessage?.additional_kwargs?.interrogationCalls || [];
+  const intermediateContent = externalMessage?.additional_kwargs?.intermediateContent || '';
+  const isStreaming = externalMessage?.additional_kwargs?.streaming || false;
+
   return (
     <MessagePrimitive.Root className="relative grid w-[90%] grid-cols-[auto_auto_1fr] grid-rows-[auto_1fr] py-4">
       <Avatar className="col-start-1 row-span-full row-start-1 mr-4 bg-blue-100">
@@ -141,6 +150,29 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
       </Avatar>
 
       <div className="text-foreground col-span-2 col-start-2 row-start-1 my-1.5 break-words leading-7">
+        {/* Show intermediate AI content before interrogation */}
+        {intermediateContent && (
+          <div className="mb-4 prose dark:prose-invert max-w-none">
+            {intermediateContent}
+          </div>
+        )}
+        
+        {/* Show interrogating indicator only after intermediate content finishes streaming */}
+        {interrogationCalls && interrogationCalls.length > 0 && 
+          interrogationCalls
+            .filter((call: any) => call.showIndicator)
+            .map((call: any, index: number) => (
+              <InterrogatingIndicator 
+                key={index}
+                toolCall={{
+                  name: 'interrogation',
+                  arguments: call.arguments
+                }}
+                isActive={call.isActive}
+              />
+            ))
+        }
+        
         <MessagePrimitive.Content components={{ Text: MarkdownText }} />
         
         {isLast && runId && (

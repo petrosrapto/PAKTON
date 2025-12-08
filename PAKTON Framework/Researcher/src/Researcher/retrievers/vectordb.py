@@ -112,13 +112,13 @@ class VectorDBRetriever(BaseRetriever):
         chroma_config = self.vectordb_config.get("chroma", {})
 
         self.index_name = chroma_config.get("INDEX_NAME")
-        persist_directory = chroma_config.get("persist_directory")  # Default directory
+        persist_directory = chroma_config.get("persist_directory", "/chroma_db")  # Default to /chroma_db
         collection_metadata = chroma_config.get("metadata", {})
 
         if not self.index_name or not persist_directory:
             raise ValueError("Missing Chroma index name or persist directory in config.yaml.")
 
-        client_settings = Settings(persist_directory=persist_directory)
+        client_settings = Settings(persist_directory=persist_directory, anonymized_telemetry=False)
 
         self.vectorstore = Chroma(
             collection_name=self.index_name,

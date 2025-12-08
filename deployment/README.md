@@ -36,7 +36,7 @@ deployment/
 
 ### Deploy
 
-Push to the `develop` or `feature/PAKTON_backend` branch:
+Push to the `develop` branch:
 
 ```bash
 git push origin develop
@@ -60,7 +60,7 @@ GitHub Actions automatically:
 
 ### Development Environment
 
-**Trigger**: Push to `develop` or `feature/PAKTON_backend` branch
+**Trigger**: Push to `develop` branch
 
 **Workflow**: `.github/workflows/deploy-dev.yml`
 

@@ -47,6 +47,7 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - ${DEPLOY_DIR}/data/chroma:/chroma_db
       - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
       - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
       - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro
@@ -83,6 +84,7 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - ${DEPLOY_DIR}/data/chroma:/chroma_db
       - ${ENV_DIR}/archivist.env:/app/API/archivist.env:ro
       - ${ENV_DIR}/researcher.env:/app/API/researcher.env:ro
       - ${ENV_DIR}/interrogator.env:/app/API/interrogator.env:ro

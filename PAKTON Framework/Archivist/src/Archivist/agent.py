@@ -92,7 +92,7 @@ class Archivist:
             logger.info("Setting up indexers...")
 
             # Vector DB indexer
-            if self.config.get("enable_vectordb", False):
+            if self.config.get("enable_vectordb", True):
                 try:
                     vector_indexer = VectorDBIndexer()
                     self.graph_builder.add_indexer(vector_indexer.name, vector_indexer)

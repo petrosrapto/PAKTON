@@ -91,7 +91,7 @@ class VectorDBIndexer(BaseIndexer):
         if not self.index_name:
             raise ValueError("Missing Chroma index name in config.yaml.")
 
-        client_settings = Settings(persist_directory=persist_directory)
+        client_settings = Settings(persist_directory=persist_directory, anonymized_telemetry=False)
 
         self.db = Chroma(
             collection_name=self.index_name,

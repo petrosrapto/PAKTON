@@ -63,10 +63,14 @@ class BM25RetrieverWrapper(BaseRetriever):
             self.doc_texts = [doc.page_content for doc in self.documents]
             self.tokenized_docs = [doc.split() for doc in self.doc_texts]
             self.bm25 = BM25Okapi(self.tokenized_docs)
+            
+            logger.info("BM25Retriever initialized successfully with BM25Okapi instance")
 
         except Exception as e:
             logger.error("Error initializing BM25Retriever: %s", str(e))
             logger.debug(traceback.format_exc())
+            # Re-raise the exception to prevent creating an unusable instance
+            raise
 
     def _load_documents(self) -> List[Document]:
         """

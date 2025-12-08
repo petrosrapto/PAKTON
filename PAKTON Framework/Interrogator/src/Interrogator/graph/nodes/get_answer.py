@@ -27,6 +27,6 @@ def get_answer(state: InterrogationState):
 
     instructions_for_search = "**SEARCH STORED DOCUMENTS** in the document database in order to answer the query."
 
-    search_config = {"return_chunks": True}
+    search_config = {"return_chunks": False}
 
     return {"messages": [researcher.search(query=question, instructions=instructions_for_search, config=search_config).get("response", "No response generated")]}

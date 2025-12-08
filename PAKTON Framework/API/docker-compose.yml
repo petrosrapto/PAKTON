@@ -45,6 +45,7 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - chroma_data:/chroma_db
 
   multiagentframework_worker:
     container_name: multiagentframework_worker
@@ -75,6 +76,7 @@ services:
     restart: always
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - chroma_data:/chroma_db
 
   # PostgreSQL service for persistence of the conversations of the Archivist
   postgres:
@@ -90,3 +92,4 @@ services:
 
 volumes:
   postgres_data:
+  chroma_data:
